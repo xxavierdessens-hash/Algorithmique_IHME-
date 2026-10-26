@@ -20,10 +20,38 @@ async function request(path, options = {}) {
 
 export const api = {
   getMatches: () => request("/api/matches"),
+  createMatch: (match) =>
+    request("/api/matches", {
+      method: "POST",
+      body: JSON.stringify(match),
+    }),
+  updateMatch: (matchId, changes) =>
+    request(`/api/matches/${matchId}`, {
+      method: "PUT",
+      body: JSON.stringify(changes),
+    }),
+  deleteMatch: (matchId) =>
+    request(`/api/matches/${matchId}`, { method: "DELETE" }),
   getPlayers: () => request("/api/players"),
+  createPlayer: (player) =>
+    request("/api/players", {
+      method: "POST",
+      body: JSON.stringify(player),
+    }),
+  updatePlayer: (playerId, player) =>
+    request(`/api/players/${playerId}`, {
+      method: "PUT",
+      body: JSON.stringify(player),
+    }),
+  deletePlayer: (playerId) =>
+    request(`/api/players/${playerId}`, { method: "DELETE" }),
   getMatchStatistics: (matchId) =>
     request(`/api/statistics/matches/${matchId}`),
   getProgression: () => request("/api/statistics/progression"),
+  getAnalyticsProgression: (filters) => {
+    const parameters = new URLSearchParams(filters);
+    return request(`/api/analytics/progression?${parameters.toString()}`);
+  },
   recordAction: (matchId, playerId, action, delta) =>
     request(`/api/statistics/matches/${matchId}/players/${playerId}`, {
       method: "POST",

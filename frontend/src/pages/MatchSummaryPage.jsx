@@ -38,6 +38,7 @@ export default function MatchSummaryPage({ matches, initialMatch }) {
   }, [selectedId]);
 
   const ranking = [...rows].sort((a, b) => Number(b.points) - Number(a.points));
+  const selectedMatch = matches.find((match) => String(match.id) === String(selectedId));
 
   return (
     <section>
@@ -60,6 +61,14 @@ export default function MatchSummaryPage({ matches, initialMatch }) {
         {!selectedId ? (
           <p className="status-message">Sélectionnez un match pour afficher ses statistiques.</p>
         ) : (
+          <>
+          {selectedMatch?.status === "Terminé" && (
+            <div className="summary-score">
+              <span>Score final</span>
+              <strong>{selectedMatch.score_home} – {selectedMatch.score_away}</strong>
+              <small>sets</small>
+            </div>
+          )}
           <div className="summary-grid">
             {ranking.map((player, index) => (
               <article className={`summary-card${index === 0 && Number(player.points) > 0 ? " summary-card--mvp" : ""}`} key={player.id}>
@@ -83,6 +92,7 @@ export default function MatchSummaryPage({ matches, initialMatch }) {
             ))}
             {ranking.length === 0 && <p className="status-message">Aucune statistique saisie pour ce match.</p>}
           </div>
+          </>
         )}
       </StatusMessage>
     </section>

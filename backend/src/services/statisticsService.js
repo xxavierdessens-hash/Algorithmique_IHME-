@@ -12,8 +12,8 @@ const ALLOWED_ACTIONS = new Set([
 const MATCH_STATISTICS_SQL = `
   SELECT
     p.id,
-    p.name,
-    p.jersey_number,
+    CONCAT_WS(' ', p.first_name, p.last_name) AS name,
+    p.number AS jersey_number,
     p.position,
     COALESCE(s.attack_points, 0)::int AS attack_points,
     COALESCE(s.attack_attempts, 0)::int AS attack_attempts,
@@ -30,7 +30,7 @@ const MATCH_STATISTICS_SQL = `
   FROM players p
   LEFT JOIN match_player_stats s ON s.player_id = p.id AND s.match_id = $1
   WHERE p.active = TRUE
-  ORDER BY p.jersey_number NULLS LAST, p.name
+  ORDER BY p.number NULLS LAST, p.last_name, p.first_name
 `;
 
 export async function getMatchStatistics(matchId) {
@@ -42,8 +42,8 @@ export async function getSeasonProgression() {
   const { rows } = await query(
     `SELECT
        p.id,
-       p.name,
-       p.jersey_number,
+       CONCAT_WS(' ', p.first_name, p.last_name) AS name,
+       p.number AS jersey_number,
        p.position,
        COUNT(DISTINCT s.match_id)::int AS matches_played,
        COALESCE(SUM(s.attack_points), 0)::int AS attack_points,
@@ -61,7 +61,7 @@ export async function getSeasonProgression() {
      LEFT JOIN match_player_stats s ON s.player_id = p.id
      WHERE p.active = TRUE
      GROUP BY p.id
-     ORDER BY points DESC, p.jersey_number NULLS LAST, p.name`,
+     ORDER BY points DESC, p.number NULLS LAST, p.last_name, p.first_name`,
   );
   return rows;
 }
@@ -79,7 +79,7 @@ export async function recordPlayerAction(matchId, playerId, action, delta) {
      SELECT $1, p.id, GREATEST(0, $3)
      FROM players p
      JOIN matches m ON m.id = $1
-     WHERE p.id = $2 AND p.active = TRUE
+     WHERE p.id = $2 AND p.active = TRUE AND m.status <> 'Terminé'
      ON CONFLICT (match_id, player_id) DO UPDATE
        SET ${column} = GREATEST(0, match_player_stats.${column} + $3),
            updated_at = NOW()

@@ -40,6 +40,12 @@ export async function updatePlayerAction(request, response) {
 
   const updated = await recordPlayerAction(matchId, playerId, action, delta);
   if (!updated) {
+    const match = await query("SELECT status FROM matches WHERE id = $1", [matchId]);
+    if (match.rows[0]?.status === "Terminé") {
+      return response.status(409).json({
+        error: "Le match est terminé et ses statistiques sont verrouillées.",
+      });
+    }
     return response.status(404).json({ error: "Match ou joueur introuvable." });
   }
   response.json(updated);

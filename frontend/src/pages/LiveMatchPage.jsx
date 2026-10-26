@@ -11,11 +11,12 @@ const ACTIONS = [
   { key: "block_points", label: "Contre gagnant", group: "Bloc", symbol: "▥" },
 ];
 
-export default function LiveMatchPage({ match }) {
+export default function LiveMatchPage({ match, onUpdateMatch }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(Boolean(match));
   const [error, setError] = useState("");
   const [saving, setSaving] = useState("");
+  const [scoreSaving, setScoreSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +62,33 @@ export default function LiveMatchPage({ match }) {
     }
   }
 
+  async function updateScore(field, delta) {
+    const current = Number(match[field] || 0);
+    if (delta < 0 && current === 0) return;
+    setScoreSaving(true);
+    setError("");
+    try {
+      await onUpdateMatch(match.id, { [field]: current + delta, status: "En cours" });
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setScoreSaving(false);
+    }
+  }
+
+  async function finishMatch() {
+    if (!window.confirm("Terminer le match et verrouiller ses statistiques ?")) return;
+    setScoreSaving(true);
+    setError("");
+    try {
+      await onUpdateMatch(match.id, { status: "Terminé" });
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setScoreSaving(false);
+    }
+  }
+
   if (!match) {
     return (
       <section className="empty-state">
@@ -75,12 +103,64 @@ export default function LiveMatchPage({ match }) {
     <section>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Feuille de match · {match.venue || "Lieu à confirmer"}</p>
+          <p className="eyebrow">Feuille de match · {match.location || match.venue || "Lieu à confirmer"}</p>
           <h2>StatsVolley <span className="muted">vs</span> {match.opponent}</h2>
         </div>
-        <span className="live-indicator"><i /> LIVE</span>
+        {match.status === "Terminé"
+          ? <span className="tag tag--completed">Match terminé</span>
+          : <span className="live-indicator"><i /> LIVE</span>}
       </div>
-      <p className="helper-text">Touchez + pour enregistrer une action, − pour la corriger.</p>
+      <div className="scoreboard">
+        <div className="scoreboard__side">
+          <span>StatsVolley</span>
+          <div className="scoreboard__set-points">
+            <strong>{match.current_set_home ?? 0}</strong>
+            <div className="counter">
+              <button aria-label="Retirer un point à StatsVolley" disabled={scoreSaving || match.status === "Terminé" || Number(match.current_set_home || 0) === 0} onClick={() => updateScore("current_set_home", -1)} type="button">−</button>
+              <span>Points du set</span>
+              <button aria-label="Ajouter un point à StatsVolley" disabled={scoreSaving || match.status === "Terminé"} onClick={() => updateScore("current_set_home", 1)} type="button">+</button>
+            </div>
+          </div>
+          <div className="scoreboard__sets">
+            <span>Sets</span>
+            <div className="counter">
+              <button aria-label="Retirer un set à StatsVolley" disabled={scoreSaving || match.status === "Terminé" || Number(match.score_home || 0) === 0} onClick={() => updateScore("score_home", -1)} type="button">−</button>
+              <strong>{match.score_home ?? 0}</strong>
+              <button aria-label="Ajouter un set à StatsVolley" disabled={scoreSaving || match.status === "Terminé"} onClick={() => updateScore("score_home", 1)} type="button">+</button>
+            </div>
+          </div>
+        </div>
+        <span className="scoreboard__versus">—</span>
+        <div className="scoreboard__side">
+          <span>{match.opponent}</span>
+          <div className="scoreboard__set-points">
+            <strong>{match.current_set_away ?? 0}</strong>
+            <div className="counter">
+              <button aria-label={`Retirer un point à ${match.opponent}`} disabled={scoreSaving || match.status === "Terminé" || Number(match.current_set_away || 0) === 0} onClick={() => updateScore("current_set_away", -1)} type="button">−</button>
+              <span>Points du set</span>
+              <button aria-label={`Ajouter un point à ${match.opponent}`} disabled={scoreSaving || match.status === "Terminé"} onClick={() => updateScore("current_set_away", 1)} type="button">+</button>
+            </div>
+          </div>
+          <div className="scoreboard__sets">
+            <span>Sets</span>
+            <div className="counter">
+              <button aria-label={`Retirer un set à ${match.opponent}`} disabled={scoreSaving || match.status === "Terminé" || Number(match.score_away || 0) === 0} onClick={() => updateScore("score_away", -1)} type="button">−</button>
+              <strong>{match.score_away ?? 0}</strong>
+              <button aria-label={`Ajouter un set à ${match.opponent}`} disabled={scoreSaving || match.status === "Terminé"} onClick={() => updateScore("score_away", 1)} type="button">+</button>
+            </div>
+          </div>
+        </div>
+        {match.status !== "Terminé" && (
+          <button className="button button--primary scoreboard__finish" disabled={scoreSaving} onClick={finishMatch} type="button">
+            {scoreSaving ? "Enregistrement…" : "Terminer le match"}
+          </button>
+        )}
+      </div>
+      <p className="helper-text">
+        {match.status === "Terminé"
+          ? `Score final : ${match.score_home} – ${match.score_away} sets. Les statistiques sont verrouillées.`
+          : "Touchez + pour enregistrer une action, − pour la corriger."}
+      </p>
       <StatusMessage loading={loading} error={error}>
         <div className="live-table-wrap">
           <table className="live-table">
@@ -110,14 +190,14 @@ export default function LiveMatchPage({ match }) {
                         <div className="counter">
                           <button
                             aria-label={`Retirer une action ${action.label} pour ${player.name}`}
-                            disabled={count === 0 || Boolean(saving)}
+                            disabled={count === 0 || Boolean(saving) || match.status === "Terminé"}
                             onClick={() => updateStat(player, action.key, -1)}
                             type="button"
                           >−</button>
                           <strong aria-live="polite">{isSaving ? "…" : count}</strong>
                           <button
                             aria-label={`Ajouter une action ${action.label} pour ${player.name}`}
-                            disabled={Boolean(saving)}
+                            disabled={Boolean(saving) || match.status === "Terminé"}
                             onClick={() => updateStat(player, action.key, 1)}
                             type="button"
                           >+</button>

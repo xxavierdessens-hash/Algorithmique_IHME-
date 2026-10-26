@@ -4,12 +4,14 @@ import CalendarPage from "./pages/CalendarPage.jsx";
 import LiveMatchPage from "./pages/LiveMatchPage.jsx";
 import MatchSummaryPage from "./pages/MatchSummaryPage.jsx";
 import PlayerProgressPage from "./pages/PlayerProgressPage.jsx";
+import PlayersPage from "./pages/PlayersPage.jsx";
 
 const NAV_ITEMS = [
   { id: "calendar", label: "Calendrier", number: "01" },
-  { id: "live", label: "Live match", number: "02" },
-  { id: "summary", label: "Récap match", number: "03" },
-  { id: "progress", label: "Progression", number: "04" },
+  { id: "players", label: "Effectif", number: "02" },
+  { id: "live", label: "Live match", number: "03" },
+  { id: "summary", label: "Récap match", number: "04" },
+  { id: "progress", label: "Progression", number: "05" },
 ];
 
 export default function App() {
@@ -39,6 +41,31 @@ export default function App() {
   function openMatch(match) {
     setSelectedMatch(match);
     setPage("live");
+  }
+
+  function openSummary(match) {
+    setSelectedMatch(match);
+    setPage("summary");
+  }
+
+  async function addMatch(match) {
+    const createdMatch = await api.createMatch(match);
+    setMatches((current) =>
+      [...current, createdMatch].sort(
+        (first, second) => new Date(first.match_date) - new Date(second.match_date),
+      ),
+    );
+  }
+
+  async function updateMatch(matchId, changes) {
+    const updatedMatch = await api.updateMatch(matchId, changes);
+    setMatches((current) =>
+      current.map((match) => match.id === updatedMatch.id ? updatedMatch : match),
+    );
+    setSelectedMatch((current) =>
+      current?.id === updatedMatch.id ? updatedMatch : current,
+    );
+    return updatedMatch;
   }
 
   return (
@@ -84,10 +111,19 @@ export default function App() {
             <div className="welcome__ball" aria-hidden="true">◉</div>
           </div>
           {page === "calendar" && (
-            <CalendarPage matches={matches} loading={loading} error={error} onOpenMatch={openMatch} />
+            <CalendarPage
+              matches={matches}
+              loading={loading}
+              error={error}
+              onOpenMatch={openMatch}
+              onOpenSummary={openSummary}
+              onCreateMatch={addMatch}
+              onUpdateMatch={updateMatch}
+            />
           )}
-          {page === "live" && <LiveMatchPage match={selectedMatch} />}
+          {page === "live" && <LiveMatchPage match={selectedMatch} onUpdateMatch={updateMatch} />}
           {page === "summary" && <MatchSummaryPage matches={matches} initialMatch={selectedMatch} />}
+          {page === "players" && <PlayersPage />}
           {page === "progress" && <PlayerProgressPage />}
           <footer className="page-footer">STATS VOLLEY <span>·</span> LE JEU EN CHIFFRES</footer>
         </div>

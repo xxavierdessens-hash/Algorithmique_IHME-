@@ -59,10 +59,11 @@ La variable `VITE_API_URL` peut être définie côté frontend ; elle vaut
 
 ## Fonctionnalités du squelette
 
-- Calendrier des matchs avec état et lieu.
-- Interface live avec compteurs + / - pour attaque, service et bloc.
+- Calendrier des matchs trié par date, ajout via une modale, état, lieu et score.
+- Gestion de l'effectif : création, modification et suppression des joueurs.
+- Interface live avec compteurs + / - pour le score du set, les sets et les actions individuelles ; la clôture du match verrouille les statistiques.
 - Récapitulatif d'un match : points comptés et ratio de réussite à l'attaque.
-- Progression saisonnière agrégée par joueur.
+- Progression filtrable par joueur, statistique et période, avec indicateurs, courbe temporelle et profil radar.
 - Données de démonstration créées de manière idempotente à l'initialisation.
 
 Les actions enregistrées dans l'interface live sont persistées immédiatement.
@@ -71,11 +72,22 @@ Les actions négatives ramènent un compteur au minimum à zéro.
 ## API initiale
 
 - `GET /api/health` — disponibilité de l'API et de la base.
-- `GET /api/matches` — calendrier.
-- `GET /api/players` — joueurs.
+- `GET /api/matches` — calendrier trié par date.
+- `POST /api/matches` — ajoute un match (`opponent`, `match_date`, `location`).
+- `PUT /api/matches/:id` — modifie son `status` (`À venir`, `En cours` ou `Terminé`) et/ou son `score_home` / `score_away`.
+- `DELETE /api/matches/:id` — supprime un match.
+- `GET /api/players` — joueurs triés par numéro.
+- `POST /api/players` — ajoute un joueur (`first_name`, `last_name`, `number`, `position`).
+- `PUT /api/players/:id` — modifie les informations d'un joueur.
+- `DELETE /api/players/:id` — supprime un joueur.
 - `GET /api/statistics/matches/:matchId` — statistiques du match.
 - `POST /api/statistics/matches/:matchId/players/:playerId` — incrément ou décrément.
 - `GET /api/statistics/progression` — totaux de saison par joueur.
+- `GET /api/analytics/progression?player_id=all&stat_type=attack_efficiency&period=all` — indicateurs, série par match et profil radar. `player_id` accepte `all` ou un identifiant ; `stat_type` accepte `attack_efficiency`, `kills`, `aces`, `blocks` ou `total_points` ; `period` accepte `all`, `last_3` ou `last_5`.
+
+`PUT /api/matches/:id` accepte également `current_set_home` et
+`current_set_away` pour persister les points du set en cours. Le score final
+(`score_home` / `score_away`) est exprimé en sets.
 
 Le corps du POST accepte `{"action":"attack_points","delta":1}`.
 Actions permises : `attack_points`, `attack_attempts`, `attack_errors`,
