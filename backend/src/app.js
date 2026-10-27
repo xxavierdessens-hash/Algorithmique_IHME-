@@ -25,13 +25,15 @@ app.use("/api/statistics", statisticsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/trainings", trainingsRouter);
 app.use("/api/drills", drillsRouter);
+
 if (existsSync(frontendIndex)) {
-  app.use(
-    "/algorithmique-ihme",
-    express.static(frontendDirectory, { index: false }),
-  );
-  app.use("/algorithmique-ihme", (request, response, next) => {
-    if (request.method !== "GET") return next();
+  app.use(express.static(frontendDirectory, { index: false }));
+  app.use((request, response, next) => {
+    if (
+      request.method !== "GET" ||
+      request.path === "/api" ||
+      request.path.startsWith("/api/")
+    ) return next();
     response.sendFile(frontendIndex);
   });
 }

@@ -32,7 +32,8 @@ local uniquement. Utilisez des secrets adaptés avant tout déploiement.
 ## Image de déploiement
 
 L'image de production compile le frontend puis le sert depuis Express sur le
-port `3000`, sous `/algorithmique-ihme/`. Construisez-la depuis la racine :
+port `3000`, à l'URL `/algorithmique-ihme/`. Le proxy du cours retire ce préfixe
+avant de transmettre les requêtes à Express. Construisez l'image depuis la racine :
 
 ```sh
 docker build -t statsvolley .
