@@ -40,8 +40,8 @@ jobs:
           build-args: |
             BASE_PATH=${{ vars.IHME_BASE_PATH }}
           tags: |
-            ghcr.io/xxavierdessens-hash/algorithmique_ihme-:${{ github.sha }}
-            ghcr.io/xxavierdessens-hash/algorithmique_ihme-:latest
+            ghcr.io/xxavierdessens-hash/algorithmique_ihme:${{ github.sha }}
+            ghcr.io/xxavierdessens-hash/algorithmique_ihme:latest
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
