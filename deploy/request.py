@@ -64,9 +64,10 @@ if __name__ == "__main__":
             os.environ.get("IMAGE", IMAGE),
         )
         print("Déploiement vérifié : " + result["project"] + " @ " + result["digest"])
-    except (ValueError, OSError, urllib.error.URLError):
-        print(
-            "Déploiement refusé ou indisponible. Vérifier les paramètres privés et le résumé du workflow.",
-            file=sys.stderr,
-        )
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        print(f"Erreur serveur HTTP {e.code} : {error_body}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Erreur d'exécution : {str(e)}", file=sys.stderr)
         sys.exit(1)
