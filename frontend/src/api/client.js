@@ -1,5 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? "http://localhost:3000" : "");
+  (import.meta.env.DEV
+    ? "http://localhost:3000"
+    : import.meta.env.BASE_URL.replace(/\/$/, ""));
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
@@ -10,10 +12,17 @@ async function request(path, options = {}) {
     ...options,
   });
 
-  const payload = await response.json().catch(() => ({}));
+  if (response.status === 204) return null;
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("La réponse du serveur n'est pas un JSON valide.");
+  }
 
   if (!response.ok) {
-    throw new Error(payload.error || `Erreur API (${response.status})`);
+    throw new Error(payload?.error || `Erreur API (${response.status})`);
   }
 
   return payload;
