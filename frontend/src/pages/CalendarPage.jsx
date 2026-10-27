@@ -78,7 +78,7 @@ export default function CalendarPage({
       <div className="section-heading">
         <div>
           <p className="eyebrow">Saison 2026–2027</p>
-          <h2>Calendrier des matchs</h2>
+          <h2>Matchs</h2>
         </div>
         <div className="calendar-heading-actions">
           <span className="count-pill">{matches.length} match(s)</span>
@@ -122,13 +122,15 @@ export default function CalendarPage({
                     )}
                   </div>
                   <div className="match-card__actions">
-                    <button
-                      className="button button--secondary"
-                      onClick={() => onOpenMatch(match)}
-                      type="button"
-                    >
-                      {match.status === "En cours" ? "Reprendre le live" : "Live match"}
-                    </button>
+                    {match.status !== "Terminé" && (
+                      <button
+                        className="button button--secondary"
+                        onClick={() => onOpenMatch(match)}
+                        type="button"
+                      >
+                        {match.status === "En cours" ? "Reprendre le live" : "Ouvrir le live"}
+                      </button>
+                    )}
                     {match.status === "Terminé" && (
                       <button
                         className="button button--secondary"
@@ -149,13 +151,13 @@ export default function CalendarPage({
                         Modifier le score
                       </button>
                     )}
-                    <button
-                      className="button button--secondary"
-                      onClick={() => onOpenSummary(match)}
-                      type="button"
-                    >
-                      Fiche récap
-                    </button>
+                    {match.status === "Terminé" && (
+                      <button
+                        className="button button--secondary"
+                        onClick={() => onOpenSummary(match)}
+                        type="button"
+                      >Fiche récap</button>
+                    )}
                   </div>
                 </div>
               </article>

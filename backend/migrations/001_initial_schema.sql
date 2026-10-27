@@ -128,9 +128,76 @@ CREATE TABLE IF NOT EXISTS match_player_stats (
   serve_aces INTEGER NOT NULL DEFAULT 0 CHECK (serve_aces >= 0),
   serve_errors INTEGER NOT NULL DEFAULT 0 CHECK (serve_errors >= 0),
   block_points INTEGER NOT NULL DEFAULT 0 CHECK (block_points >= 0),
+  sets_played NUMERIC(5, 1) NOT NULL DEFAULT 0 CHECK (sets_played >= 0),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (match_id, player_id)
 );
 
+ALTER TABLE match_player_stats
+  ADD COLUMN IF NOT EXISTS sets_played NUMERIC(5, 1) NOT NULL DEFAULT 0
+  CHECK (sets_played >= 0);
+
+CREATE TABLE IF NOT EXISTS match_action_history (
+  id BIGSERIAL PRIMARY KEY,
+  match_id BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  player_id BIGINT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN (
+    'attack_points', 'attack_attempts', 'attack_errors',
+    'serve_aces', 'serve_errors', 'block_points'
+  )),
+  delta SMALLINT NOT NULL CHECK (delta IN (-1, 1)),
+  undone_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS matches_match_date_idx ON matches(match_date);
 CREATE INDEX IF NOT EXISTS match_player_stats_player_idx ON match_player_stats(player_id);
+CREATE INDEX IF NOT EXISTS match_action_history_match_idx
+  ON match_action_history(match_id, id DESC) WHERE undone_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS trainings (
+  id BIGSERIAL PRIMARY KEY,
+  date DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  location TEXT NOT NULL,
+  theme TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CHECK (end_time > start_time)
+);
+
+CREATE TABLE IF NOT EXISTS drills (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN (
+    'Gammes', 'Phase K1', 'Phase K2', 'Situationnel 6x6'
+  )),
+  description TEXT NOT NULL,
+  min_players INTEGER NOT NULL DEFAULT 6 CHECK (min_players > 0),
+  source_url TEXT,
+  is_custom BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE drills DROP CONSTRAINT IF EXISTS drills_category_check;
+UPDATE drills SET category = CASE category
+  WHEN 'K1 Side-out' THEN 'Phase K1'
+  WHEN 'K2 Transition' THEN 'Phase K2'
+  ELSE category
+END;
+ALTER TABLE drills ADD CONSTRAINT drills_category_check
+  CHECK (category IN ('Gammes', 'Phase K1', 'Phase K2', 'Situationnel 6x6'));
+
+CREATE TABLE IF NOT EXISTS training_drills (
+  training_id BIGINT NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
+  drill_id BIGINT NOT NULL REFERENCES drills(id) ON DELETE RESTRICT,
+  duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
+  order_index INTEGER NOT NULL CHECK (order_index >= 0),
+  PRIMARY KEY (training_id, drill_id),
+  UNIQUE (training_id, order_index)
+);
+
+CREATE INDEX IF NOT EXISTS trainings_date_idx ON trainings(date, start_time);
+CREATE INDEX IF NOT EXISTS drills_category_idx ON drills(category);
+CREATE INDEX IF NOT EXISTS training_drills_drill_idx ON training_drills(drill_id);

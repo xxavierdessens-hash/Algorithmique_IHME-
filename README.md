@@ -61,9 +61,13 @@ La variable `VITE_API_URL` peut être définie côté frontend ; elle vaut
 
 - Calendrier des matchs trié par date, ajout via une modale, état, lieu et score.
 - Gestion de l'effectif : création, modification et suppression des joueurs.
-- Interface live avec compteurs + / - pour le score du set, les sets et les actions individuelles ; la clôture du match verrouille les statistiques.
-- Récapitulatif d'un match : points comptés et ratio de réussite à l'attaque.
-- Progression filtrable par joueur, statistique et période, avec indicateurs, courbe temporelle et profil radar.
+- Hub d'accueil accessible sur `/`, avec prochain événement et accès aux modules.
+- Navigation principale regroupée en six sections : Accueil, Calendrier global, Matchs, Entraînements, Progression et Effectif ; le menu latéral peut être réduit.
+- Calendrier global mensuel/hebdomadaire réunissant les matchs et les entraînements.
+- Planning de séances d'entraînement, bibliothèque de drills catégorisés et composition d'une séance avec durées.
+- Interface live avec compteurs + / - pour le score du set et les actions individuelles, saisie des sets joués par joueur et annulation de la dernière action ; la clôture du match verrouille les statistiques d'action.
+- Récapitulatif d'un match et progression par joueur : statistiques totales ou par set, avec saisie/correction des sets joués.
+- Progression filtrable par joueur, statistique et période, avec tableau des cumuls, indicateurs, courbe temporelle et profil radar.
 - Données de démonstration créées de manière idempotente à l'initialisation.
 
 Les actions enregistrées dans l'interface live sont persistées immédiatement.
@@ -82,8 +86,15 @@ Les actions négatives ramènent un compteur au minimum à zéro.
 - `DELETE /api/players/:id` — supprime un joueur.
 - `GET /api/statistics/matches/:matchId` — statistiques du match.
 - `POST /api/statistics/matches/:matchId/players/:playerId` — incrément ou décrément.
+- `PUT /api/statistics/matches/:matchId/players/:playerId/sets` — définit les sets joués par un joueur (nombre positif ou nul par pas de 0,5).
+- `POST /api/statistics/matches/:matchId/undo` — annule la dernière action enregistrée du match.
 - `GET /api/statistics/progression` — totaux de saison par joueur.
 - `GET /api/analytics/progression?player_id=all&stat_type=attack_efficiency&period=all` — indicateurs, série par match et profil radar. `player_id` accepte `all` ou un identifiant ; `stat_type` accepte `attack_efficiency`, `kills`, `aces`, `blocks` ou `total_points` ; `period` accepte `all`, `last_3` ou `last_5`.
+- `GET /api/trainings` — liste les séances et leurs exercices assemblés.
+- `POST /api/trainings` / `PUT /api/trainings/:id` / `DELETE /api/trainings/:id` — crée, modifie ou supprime une séance.
+- `PUT /api/trainings/:id/drills` — remplace l'assemblage ordonné des exercices et de leurs durées.
+- `GET /api/drills?category=Phase%20K1` — liste les exercices, avec filtre facultatif parmi `Gammes`, `Phase K1`, `Phase K2` et `Situationnel 6x6`.
+- `POST /api/drills` — ajoute un exercice personnalisé.
 
 `PUT /api/matches/:id` accepte également `current_set_home` et
 `current_set_away` pour persister les points du set en cours. Le score final

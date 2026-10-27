@@ -32,6 +32,15 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "2-digit",
   month: "short",
 });
+const SEASON_STATS = [
+  { key: "points", label: "Points", unit: "pts" },
+  { key: "attack_points", label: "Attaques gagnantes", unit: "pts" },
+  { key: "attack_attempts", label: "Tentatives", unit: "actions" },
+  { key: "attack_errors", label: "Fautes attaque", unit: "fautes" },
+  { key: "serve_aces", label: "Aces", unit: "aces" },
+  { key: "serve_errors", label: "Fautes service", unit: "fautes" },
+  { key: "block_points", label: "Contres", unit: "contres" },
+];
 
 function formatValue(value, statType) {
   const formatted = Number(value || 0).toLocaleString("fr-FR", {
@@ -48,6 +57,10 @@ export default function PlayerProgressPage() {
     period: "all",
   });
   const [data, setData] = useState(null);
+  const [seasonRows, setSeasonRows] = useState([]);
+  const [seasonLoading, setSeasonLoading] = useState(true);
+  const [seasonError, setSeasonError] = useState("");
+  const [displayMode, setDisplayMode] = useState("totals");
   const [playersLoading, setPlayersLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,6 +76,23 @@ export default function PlayerProgressPage() {
       })
       .finally(() => {
         if (active) setPlayersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    api.getProgression()
+      .then((result) => {
+        if (active) setSeasonRows(result);
+      })
+      .catch((requestError) => {
+        if (active) setSeasonError(requestError.message);
+      })
+      .finally(() => {
+        if (active) setSeasonLoading(false);
       });
     return () => {
       active = false;
@@ -101,6 +131,23 @@ export default function PlayerProgressPage() {
   const kpis = data?.kpis;
   const statLabel = STAT_OPTIONS.find((option) =>
     option.value === filters.stat_type)?.label || "Statistiques";
+  const sortedSeasonRows = [...seasonRows].sort(
+    (first, second) => Number(second.points) - Number(first.points),
+  );
+  const formatSeasonMetric = (value, setsPlayed, unit) => {
+    const total = Number(value || 0);
+    const sets = Number(setsPlayed || 0);
+    const perSet = sets > 0 ? total / sets : 0;
+    const ratio = perSet.toLocaleString("fr-FR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+    const totalLabel = `${total} ${unit}`;
+    const formattedSets = sets.toLocaleString("fr-FR");
+    return displayMode === "totals"
+      ? `${totalLabel} (${ratio}/set — ${formattedSets} sets)`
+      : `${ratio}/set (${totalLabel} — ${formattedSets} sets)`;
+  };
 
   return (
     <section>
@@ -228,6 +275,62 @@ export default function PlayerProgressPage() {
           </>
         )}
       </StatusMessage>
+      <section className="season-progression">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Cumuls individuels</p>
+            <h2>Statistiques par joueur</h2>
+          </div>
+          <div className="view-toggle" aria-label="Mode d'affichage">
+            <button
+              aria-pressed={displayMode === "totals"}
+              className={displayMode === "totals" ? "view-toggle__active" : ""}
+              onClick={() => setDisplayMode("totals")}
+              type="button"
+            >Totaux</button>
+            <button
+              aria-pressed={displayMode === "perSet"}
+              className={displayMode === "perSet" ? "view-toggle__active" : ""}
+              onClick={() => setDisplayMode("perSet")}
+              type="button"
+            >Par set</button>
+          </div>
+        </div>
+        <StatusMessage loading={seasonLoading} error={seasonError}>
+          <div className="progress-table-wrap">
+            <table className="progress-table">
+              <thead>
+                <tr>
+                  <th scope="col">Joueur</th>
+                  <th scope="col">Sets joués</th>
+                  {SEASON_STATS.map((stat) => (
+                    <th key={stat.key} scope="col">{stat.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sortedSeasonRows.map((player) => (
+                  <tr key={player.id}>
+                    <th scope="row">
+                      <span className="player-number">{player.jersey_number ?? "—"}</span>
+                      {player.name}
+                    </th>
+                    <td>{Number(player.sets_played || 0).toLocaleString("fr-FR")}</td>
+                    {SEASON_STATS.map((stat) => (
+                      <td key={stat.key}>
+                        {formatSeasonMetric(player[stat.key], player.sets_played, stat.unit)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {!sortedSeasonRows.length && !seasonLoading && (
+                  <tr><td colSpan={SEASON_STATS.length + 2}>Aucun joueur actif à afficher.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </StatusMessage>
+      </section>
     </section>
   );
 }

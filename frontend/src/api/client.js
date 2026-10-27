@@ -20,6 +20,35 @@ async function request(path, options = {}) {
 
 export const api = {
   getMatches: () => request("/api/matches"),
+  getTrainings: () => request("/api/trainings"),
+  createTraining: (training) =>
+    request("/api/trainings", {
+      method: "POST",
+      body: JSON.stringify(training),
+    }),
+  updateTraining: (trainingId, training) =>
+    request(`/api/trainings/${trainingId}`, {
+      method: "PUT",
+      body: JSON.stringify(training),
+    }),
+  deleteTraining: (trainingId) =>
+    request(`/api/trainings/${trainingId}`, { method: "DELETE" }),
+  replaceTrainingDrills: (trainingId, drills) =>
+    request(`/api/trainings/${trainingId}/drills`, {
+      method: "PUT",
+      body: JSON.stringify({ drills }),
+    }),
+  getDrills: (category) => {
+    const parameters = new URLSearchParams();
+    if (category) parameters.set("category", category);
+    const query = parameters.toString();
+    return request(`/api/drills${query ? `?${query}` : ""}`);
+  },
+  createDrill: (drill) =>
+    request("/api/drills", {
+      method: "POST",
+      body: JSON.stringify(drill),
+    }),
   createMatch: (match) =>
     request("/api/matches", {
       method: "POST",
@@ -47,6 +76,13 @@ export const api = {
     request(`/api/players/${playerId}`, { method: "DELETE" }),
   getMatchStatistics: (matchId) =>
     request(`/api/statistics/matches/${matchId}`),
+  updatePlayerSets: (matchId, playerId, setsPlayed) =>
+    request(`/api/statistics/matches/${matchId}/players/${playerId}/sets`, {
+      method: "PUT",
+      body: JSON.stringify({ sets_played: setsPlayed }),
+    }),
+  undoLastAction: (matchId) =>
+    request(`/api/statistics/matches/${matchId}/undo`, { method: "POST" }),
   getProgression: () => request("/api/statistics/progression"),
   getAnalyticsProgression: (filters) => {
     const parameters = new URLSearchParams(filters);

@@ -17,6 +17,25 @@ export function query(text, params) {
   return pool.query(text, params);
 }
 
+export async function withTransaction(callback) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await callback(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("Database transaction rollback failed:", rollbackError);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function initializeDatabase() {
   const schemaPath = new URL("../../migrations/001_initial_schema.sql", import.meta.url);
   const seedPath = new URL("../../seeds/seed.sql", import.meta.url);
