@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 
 
-def request_deployment(url, token, digest):
+def request_deployment(url, token, digest, registry_token=""):
     address = urllib.parse.urlsplit(url)
     if (
         address.scheme != "https"
@@ -24,9 +24,12 @@ def request_deployment(url, token, digest):
         raise ValueError("URL HTTPS de déploiement invalide.")
     if not token or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
         raise ValueError("Jeton privé et digest SHA-256 requis.")
+    payload = {"digest": digest}
+    if registry_token:
+        payload["registry_token"] = registry_token
     request = urllib.request.Request(
         url,
-        data=json.dumps({"digest": digest}).encode(),
+        data=json.dumps(payload).encode(),
         headers={
             "Content-Type": "application/json",
             "Authorization": "Bearer " + token,
@@ -52,6 +55,7 @@ if __name__ == "__main__":
             os.environ.get("DEPLOY_URL", ""),
             os.environ.get("DEPLOY_TOKEN", ""),
             os.environ.get("DIGEST", ""),
+            os.environ.get("REGISTRY_TOKEN", ""),
         )
         print("Déploiement vérifié : " + result["project"] + " @ " + result["digest"])
     except urllib.error.HTTPError as e:
