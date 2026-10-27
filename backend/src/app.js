@@ -8,8 +8,12 @@ import trainingsRouter from "./routes/trainings.js";
 import drillsRouter from "./routes/drills.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { healthController } from "./controllers/healthController.js";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const app = express();
+const frontendDirectory = fileURLToPath(new URL("../public/", import.meta.url));
+const frontendIndex = fileURLToPath(new URL("../public/index.html", import.meta.url));
 
 app.use(cors());
 app.use(express.json({ limit: "32kb" }));
@@ -21,6 +25,16 @@ app.use("/api/statistics", statisticsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/trainings", trainingsRouter);
 app.use("/api/drills", drillsRouter);
+if (existsSync(frontendIndex)) {
+  app.use(
+    "/algorithmique-ihme",
+    express.static(frontendDirectory, { index: false }),
+  );
+  app.use("/algorithmique-ihme", (request, response, next) => {
+    if (request.method !== "GET") return next();
+    response.sendFile(frontendIndex);
+  });
+}
 app.use(notFoundHandler);
 app.use(errorHandler);
 

@@ -3,11 +3,10 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 const { Pool } = pg;
-const pool = new Pool(
-  process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL }
-    : undefined,
-);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 4,
+});
 
 pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error:", error);

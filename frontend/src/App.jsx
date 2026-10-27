@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client.js";
 import CalendarPage from "./pages/CalendarPage.jsx";
 import GlobalCalendarPage from "./pages/GlobalCalendarPage.jsx";
@@ -24,8 +25,10 @@ function pageFromPath(pathname) {
   return NAV_ITEMS.find((item) => item.path === pathname)?.id || "home";
 }
 
-export default function App() {
-  const [page, setPage] = useState(() => pageFromPath(window.location.pathname));
+function AppContent() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [page, setPage] = useState(() => pageFromPath(location.pathname));
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => window.localStorage.getItem("statsvolley-sidebar-collapsed") === "true",
   );
@@ -37,12 +40,8 @@ export default function App() {
   const [trainingLoadError, setTrainingLoadError] = useState("");
 
   useEffect(() => {
-    function syncPage() {
-      setPage(pageFromPath(window.location.pathname));
-    }
-    window.addEventListener("popstate", syncPage);
-    return () => window.removeEventListener("popstate", syncPage);
-  }, []);
+    setPage(pageFromPath(location.pathname));
+  }, [location.pathname]);
 
   useEffect(() => {
     let active = true;
@@ -72,9 +71,7 @@ export default function App() {
       const nextMatch = matches.find((match) => match.status !== "Terminé");
       if (nextMatch) setSelectedMatch(nextMatch);
     }
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, "", path);
-    }
+    if (location.pathname !== path) navigate(path);
     setPage(nextPage);
   }
 
@@ -243,5 +240,13 @@ export default function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter basename="/algorithmique-ihme">
+      <AppContent />
+    </BrowserRouter>
   );
 }

@@ -29,6 +29,18 @@ Pour supprimer aussi les données locales de la base, utilisez
 Les identifiants PostgreSQL fournis par défaut sont destinés au développement
 local uniquement. Utilisez des secrets adaptés avant tout déploiement.
 
+## Image de déploiement
+
+L'image de production compile le frontend puis le sert depuis Express sur le
+port `3000`, sous `/algorithmique-ihme/`. Construisez-la depuis la racine :
+
+```sh
+docker build -t statsvolley .
+```
+
+Au lancement, fournissez `DATABASE_URL` vers une base PostgreSQL. Le serveur
+utilise `PORT` si défini, sinon le port `3000`.
+
 ## Démarrage sans Docker
 
 Prérequis : Node.js récent et PostgreSQL. Créez la base, puis configurez
