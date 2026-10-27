@@ -10,7 +10,10 @@ import urllib.parse
 import urllib.request
 
 
-def request_deployment(url, token, digest, registry_token=""):
+IMAGE = "ghcr.io/xxavierdessens-hash/algorithmique_ihme"
+
+
+def request_deployment(url, token, digest, registry_token="", image=IMAGE):
     address = urllib.parse.urlsplit(url)
     if (
         address.scheme != "https"
@@ -24,7 +27,9 @@ def request_deployment(url, token, digest, registry_token=""):
         raise ValueError("URL HTTPS de déploiement invalide.")
     if not token or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
         raise ValueError("Jeton privé et digest SHA-256 requis.")
-    body = {"digest": digest}
+    if image != IMAGE:
+        raise ValueError("Nom d’image de déploiement invalide.")
+    body = {"digest": digest, "image": image}
     if registry_token:
         body["registry_token"] = registry_token
     request = urllib.request.Request(
@@ -56,6 +61,7 @@ if __name__ == "__main__":
             os.environ.get("DEPLOY_TOKEN", ""),
             os.environ.get("DIGEST", ""),
             os.environ.get("REGISTRY_TOKEN", ""),
+            os.environ.get("IMAGE", IMAGE),
         )
         print("Déploiement vérifié : " + result["project"] + " @ " + result["digest"])
     except (ValueError, OSError, urllib.error.URLError):
