@@ -1,26 +1,53 @@
-INSERT INTO players (first_name, last_name, number, position, role)
-SELECT seed.first_name, seed.last_name, seed.number, seed.position, seed.role
+INSERT INTO players (first_name, last_name, number, position, role, email)
+SELECT seed.first_name, seed.last_name, seed.number, seed.position, seed.role, seed.email
 FROM (VALUES
-  ('Camille', 'Martin', 7, 'Passeur', 'Joueur'),
-  ('Alexandre', 'Bernard', 11, 'Central', 'Joueur'),
-  ('Lina', 'Petit', 4, 'R4', 'Joueur'),
-  ('Noah', 'Robert', 9, 'Pointu', 'Joueur'),
-  ('Jade', 'Richard', 2, 'Libéro', 'Joueur'),
-  ('Maxime', 'Durand', 10, 'R4', 'Joueur'),
-  ('Inès', 'Moreau', 12, 'Central', 'Joueur'),
-  ('Thomas', 'Simon', 3, 'R4', 'Joueur'),
-  ('Léa', 'Michel', 6, 'Passeur', 'Joueur'),
-  ('Hugo', 'Lefebvre', 8, 'Central', 'Joueur'),
-  ('Sarah', 'Leroy', 5, 'Libéro', 'Joueur'),
-  ('Adam', 'Roux', 1, 'Pointu', 'Joueur'),
-  ('Zoé', 'Fontaine', 13, 'R4', 'Invité'),
-  ('Marc', 'Dubois', NULL, NULL, 'Coach')
-) AS seed(first_name, last_name, number, position, role)
+  ('Camille', 'Martin', 7, 'Passeur', 'Joueur', 'camille.martin@example.com'),
+  ('Alexandre', 'Bernard', 11, 'Central', 'Joueur', 'alexandre.bernard@example.com'),
+  ('Lina', 'Petit', 4, 'R4', 'Joueur', 'lina.petit@example.com'),
+  ('Noah', 'Robert', 9, 'Pointu', 'Joueur', 'noah.robert@example.com'),
+  ('Jade', 'Richard', 2, 'Libéro', 'Joueur', 'jade.richard@example.com'),
+  ('Maxime', 'Durand', 10, 'R4', 'Joueur', 'maxime.durand@example.com'),
+  ('Inès', 'Moreau', 12, 'Central', 'Joueur', 'ines.moreau@example.com'),
+  ('Thomas', 'Simon', 3, 'R4', 'Joueur', 'thomas.simon@example.com'),
+  ('Léa', 'Michel', 6, 'Passeur', 'Joueur', 'lea.michel@example.com'),
+  ('Hugo', 'Lefebvre', 8, 'Central', 'Joueur', 'hugo.lefebvre@example.com'),
+  ('Sarah', 'Leroy', 5, 'Libéro', 'Joueur', 'sarah.leroy@example.com'),
+  ('Adam', 'Roux', 1, 'Pointu', 'Joueur', 'adam.roux@example.com'),
+  ('Xavier', 'Dessens', 21, 'R4', 'Joueur', 'x.dessens@gmail.com'),
+  ('Zoé', 'Fontaine', 13, 'R4', 'Invité', 'zoe.fontaine@example.com'),
+  ('Marc', 'Dubois', NULL, NULL, 'Coach', 'xxavier.dessens@gmail.com')
+) AS seed(first_name, last_name, number, position, role, email)
 WHERE NOT EXISTS (
   SELECT 1 FROM players existing
   WHERE (seed.number IS NOT NULL AND existing.number = seed.number)
      OR (existing.first_name = seed.first_name AND existing.last_name = seed.last_name)
 );
+
+UPDATE players SET email = 'x.dessens@gmail.com', role = 'Joueur', position = 'R4'
+WHERE LOWER(first_name) = 'xavier' AND LOWER(last_name) = 'dessens';
+UPDATE players SET email = 'xxavier.dessens@gmail.com', role = 'Coach'
+WHERE role = 'Coach'
+  AND first_name = 'Marc'
+  AND last_name = 'Dubois';
+UPDATE players SET email = seed.email
+FROM (VALUES
+  ('Camille', 'Martin', 'camille.martin@example.com'),
+  ('Alexandre', 'Bernard', 'alexandre.bernard@example.com'),
+  ('Lina', 'Petit', 'lina.petit@example.com'),
+  ('Noah', 'Robert', 'noah.robert@example.com'),
+  ('Jade', 'Richard', 'jade.richard@example.com'),
+  ('Maxime', 'Durand', 'maxime.durand@example.com'),
+  ('Inès', 'Moreau', 'ines.moreau@example.com'),
+  ('Thomas', 'Simon', 'thomas.simon@example.com'),
+  ('Léa', 'Michel', 'lea.michel@example.com'),
+  ('Hugo', 'Lefebvre', 'hugo.lefebvre@example.com'),
+  ('Sarah', 'Leroy', 'sarah.leroy@example.com'),
+  ('Adam', 'Roux', 'adam.roux@example.com'),
+  ('Zoé', 'Fontaine', 'zoe.fontaine@example.com')
+) AS seed(first_name, last_name, email)
+WHERE players.first_name = seed.first_name
+  AND players.last_name = seed.last_name
+  AND players.role IN ('Joueur', 'Invité');
 
 INSERT INTO matches (
   opponent, location, match_date, status, score_home, score_away,

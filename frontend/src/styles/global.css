@@ -1254,3 +1254,120 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .training-detail { padding: 18px; }
   .training-detail__attendance-grid { grid-template-columns: 1fr; }
 }
+
+.sidebar__profile-name { min-width: 0; flex: 1; }
+.sidebar__profile-name strong,
+.sidebar__profile-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar__profile-name small { max-width: 155px; }
+.sidebar__change-profile,
+.topbar__change-profile {
+  padding: 6px 8px;
+  border: 1px solid #ffffff24;
+  border-radius: 9px;
+  color: #dbe5ff;
+  background: #ffffff0d;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.sidebar__change-profile:hover,
+.topbar__change-profile:hover { background: #ffffff1a; }
+.topbar__session { display: flex; align-items: center; gap: 12px; }
+.topbar__change-profile {
+  border-color: #e2e8f0;
+  color: #475569;
+  background: #fff;
+}
+.player-card__email {
+  display: block;
+  margin: 5px 0 7px;
+  overflow-wrap: anywhere;
+  color: #718096;
+  font-size: 10px;
+}
+.welcome-auth-backdrop { z-index: 20; background: #0f172a99; }
+.welcome-auth {
+  width: min(100%, 440px);
+  padding: 30px;
+  border: 1px solid #e2e8f0cc;
+  border-radius: 26px;
+  box-shadow: 0 30px 90px #0f172a40;
+}
+.welcome-auth__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  color: #17223b;
+  font: 800 17px Manrope, sans-serif;
+}
+.welcome-auth__brand .brand__mark {
+  color: #fff;
+  background: #4057a5;
+}
+.welcome-auth__brand .brand__accent { color: #4057a5; }
+.welcome-auth > .eyebrow { color: #7b879b; }
+.welcome-auth h1 {
+  margin: 8px 0;
+  color: #172033;
+  font: 650 30px Manrope, sans-serif;
+  letter-spacing: -.05em;
+}
+.welcome-auth__intro {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.welcome-auth__choices {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+.welcome-auth__choices .button,
+.welcome-auth__form > .button { min-height: 44px; font-size: 12px; }
+.welcome-auth__form { margin-top: 22px; }
+.welcome-auth__form + .welcome-auth__form { margin-top: 14px; }
+.welcome-auth__separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+.welcome-auth__separator::before,
+.welcome-auth__separator::after {
+  height: 1px;
+  flex: 1;
+  background: #e8edf4;
+  content: "";
+}
+.welcome-auth__back {
+  margin-top: 18px;
+  padding: 4px 0;
+  border: 0;
+  color: #475569;
+  background: transparent;
+  font-size: 11px;
+}
+.welcome-auth__note {
+  margin: 22px 0 0;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+@media (max-width: 620px) {
+  .sidebar__footer { display: flex; margin-top: 12px; padding: 9px 2px 0; }
+  .sidebar__profile-name small { max-width: 120px; }
+  .sidebar__change-profile { font-size: 9px; }
+  .topbar__session { gap: 7px; }
+  .topbar__session .topbar__status { font-size: 0; }
+  .topbar__session .topbar__status i { margin-right: 4px; }
+  .topbar__change-profile { padding: 5px 7px; font-size: 9px; }
+  .welcome-auth { padding: 24px 20px; border-radius: 22px; }
+}

@@ -3,7 +3,7 @@ import { query, withTransaction } from "../config/database.js";
 const PLAYER_POSITIONS = new Set(["Passeur", "R4", "Central", "Pointu", "Libéro"]);
 const PLAYER_ROLES = new Set(["Coach", "Joueur", "Invité"]);
 const PLAYER_FIELDS = `id, first_name, last_name, number, number AS jersey_number,
-  CONCAT_WS(' ', first_name, last_name) AS name, position, role`;
+  CONCAT_WS(' ', first_name, last_name) AS name, position, role, email`;
 
 function parsePlayerId(value) {
   const id = Number(value);
@@ -13,12 +13,14 @@ function parsePlayerId(value) {
 function validatePlayer(body) {
   const firstName = typeof body?.first_name === "string" ? body.first_name.trim() : "";
   const lastName = typeof body?.last_name === "string" ? body.last_name.trim() : "";
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const { number, position } = body ?? {};
   const role = body?.role ?? "Joueur";
   const hasJersey = number !== undefined && number !== null && number !== "";
 
   if (
-    !firstName || !lastName ||
+    !firstName || !lastName || email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
     !PLAYER_ROLES.has(role) ||
     (role === "Joueur" && (!Number.isInteger(number) || number < 1 || number > 99)) ||
     (hasJersey && (!Number.isInteger(number) || number < 1 || number > 99)) ||
@@ -31,6 +33,7 @@ function validatePlayer(body) {
   return {
     firstName,
     lastName,
+    email,
     number: hasJersey ? number : null,
     position: position || null,
     role,
@@ -39,7 +42,10 @@ function validatePlayer(body) {
 
 function handleDuplicateNumber(error, response) {
   if (error.code !== "23505") throw error;
-  response.status(409).json({ error: "Ce numéro est déjà attribué à un joueur." });
+  const message = error.constraint === "players_email_lower_unique_idx"
+    ? "Cette adresse email est déjà attribuée à un membre."
+    : "Ce numéro est déjà attribué à un joueur.";
+  response.status(409).json({ error: message });
 }
 
 export async function listPlayers(request, response) {
@@ -68,10 +74,10 @@ export async function createPlayer(request, response) {
   try {
     const createdPlayer = await withTransaction(async (client) => {
       const { rows } = await client.query(
-        `INSERT INTO players (first_name, last_name, number, position, role)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO players (first_name, last_name, number, position, role, email)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING ${PLAYER_FIELDS}`,
-        [player.firstName, player.lastName, player.number, player.position, player.role],
+        [player.firstName, player.lastName, player.number, player.position, player.role, player.email],
       );
       await client.query(
         `INSERT INTO attendance (player_id, event_type, event_id, status)
@@ -113,10 +119,11 @@ export async function updatePlayer(request, response) {
   try {
     const { rows } = await query(
       `UPDATE players
-       SET first_name = $2, last_name = $3, number = $4, position = $5, role = $6
+       SET first_name = $2, last_name = $3, number = $4, position = $5,
+           role = $6, email = $7
        WHERE id = $1 AND active = TRUE
        RETURNING ${PLAYER_FIELDS}`,
-      [id, player.firstName, player.lastName, player.number, player.position, player.role],
+      [id, player.firstName, player.lastName, player.number, player.position, player.role, player.email],
     );
     if (rows.length === 0) {
       return response.status(404).json({ error: "Joueur introuvable." });

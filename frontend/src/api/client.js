@@ -29,6 +29,21 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  loginPlayer: (email) =>
+    request("/api/auth/player", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  loginCoach: (email) =>
+    request("/api/auth/coach", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  loginCoachDemo: (pin) =>
+    request("/api/auth/coach-demo", {
+      method: "POST",
+      body: JSON.stringify({ pin }),
+    }),
   getMatches: () => request("/api/matches"),
   getTrainings: () => request("/api/trainings"),
   getAttendance: () => request("/api/attendance"),

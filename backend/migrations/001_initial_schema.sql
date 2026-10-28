@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS players (
   number INTEGER,
   position TEXT,
   role TEXT NOT NULL DEFAULT 'Joueur',
+  email TEXT,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -13,6 +14,7 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS number INTEGER;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Joueur';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS email TEXT;
 
 DO $$
 BEGIN
@@ -52,6 +54,18 @@ END $$;
 
 UPDATE players SET first_name = 'Joueur' WHERE first_name IS NULL OR first_name = '';
 UPDATE players
+SET email = COALESCE(
+  NULLIF(LOWER(REGEXP_REPLACE(
+    CONCAT_WS('.', first_name, last_name),
+    '[^a-z0-9.]+',
+    '',
+    'g'
+  )), ''),
+  'joueur-' || id::text
+) || '@example.com'
+WHERE email IS NULL OR BTRIM(email) = '';
+ALTER TABLE players ALTER COLUMN email SET NOT NULL;
+UPDATE players
 SET position = 'R4'
 WHERE (position IS NULL OR position = '') AND role = 'Joueur';
 UPDATE players SET position = CASE position
@@ -64,6 +78,7 @@ UPDATE players SET position = 'R4'
 WHERE position NOT IN ('Passeur', 'R4', 'Central', 'Pointu', 'Libéro');
 
 CREATE UNIQUE INDEX IF NOT EXISTS players_number_unique_idx ON players(number);
+CREATE UNIQUE INDEX IF NOT EXISTS players_email_lower_unique_idx ON players(LOWER(email));
 ALTER TABLE players DROP CONSTRAINT IF EXISTS players_number_positive;
 ALTER TABLE players ADD CONSTRAINT players_number_positive
   CHECK (number IS NULL OR number > 0);

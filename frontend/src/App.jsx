@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client.js";
 import TrainingDetailModal from "./components/TrainingDetailModal.jsx";
+import WelcomeAuthModal from "./components/WelcomeAuthModal.jsx";
 import CalendarPage from "./pages/CalendarPage.jsx";
 import GlobalCalendarPage from "./pages/GlobalCalendarPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -26,6 +27,24 @@ function pageFromPath(pathname) {
   return NAV_ITEMS.find((item) => item.path === pathname)?.id || "home";
 }
 
+function readProfileSession() {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem("statsvolley-profile"));
+    if (
+      stored &&
+      ["Coach", "Joueur", "Invité"].includes(stored.role) &&
+      typeof stored.name === "string" &&
+      typeof stored.email === "string" &&
+      (stored.role === "Invité" || (stored.id !== null && stored.id !== undefined))
+    ) {
+      return stored;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -37,12 +56,9 @@ function AppContent() {
   const [trainings, setTrainings] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [players, setPlayers] = useState([]);
-  const [profile, setProfile] = useState(
-    () => window.localStorage.getItem("statsvolley-profile") || "Coach",
-  );
-  const [playerId, setPlayerId] = useState(
-    () => window.localStorage.getItem("statsvolley-player-id") || "",
-  );
+  const [profileSession, setProfileSession] = useState(readProfileSession);
+  const profile = profileSession?.role ?? null;
+  const playerId = profile === "Joueur" ? profileSession.id : "";
   const [selectedTraining, setSelectedTraining] = useState(null);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -63,12 +79,12 @@ function AppContent() {
   }, [location.pathname, navigate, profile]);
 
   useEffect(() => {
-    window.localStorage.setItem("statsvolley-profile", profile);
-  }, [profile]);
-
-  useEffect(() => {
-    window.localStorage.setItem("statsvolley-player-id", playerId);
-  }, [playerId]);
+    if (profileSession) {
+      window.localStorage.setItem("statsvolley-profile", JSON.stringify(profileSession));
+    } else {
+      window.localStorage.removeItem("statsvolley-profile");
+    }
+  }, [profileSession]);
 
   useEffect(() => {
     let active = true;
@@ -92,16 +108,6 @@ function AppContent() {
       active = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (
-      profile === "Joueur" &&
-      players.length > 0 &&
-      !players.some((player) => String(player.id) === String(playerId))
-    ) {
-      setPlayerId(String(players.find((player) => player.role === "Joueur")?.id || ""));
-    }
-  }, [playerId, players, profile]);
 
   const attendanceEventKey = [
     ...matches.map((match) => `match:${match.id}`),
@@ -152,6 +158,13 @@ function AppContent() {
 
   function openTraining(training) {
     setSelectedTraining(training);
+  }
+
+  function logout() {
+    setProfileSession(null);
+    setSelectedTraining(null);
+    setSelectedMatch(null);
+    if (location.pathname === "/live") navigate("/", { replace: true });
   }
 
   function openSummary(match) {
@@ -272,46 +285,41 @@ function AppContent() {
           ))}
         </nav>
         <div className="sidebar__footer">
-          <span className="team-avatar">SV</span>
-          <span><strong>StatsVolley</strong><small>Équipe première</small></span>
-          <span className="online-dot" aria-label="Connecté" />
+          {profileSession ? (
+            <>
+              <span className="team-avatar">{profileSession.name.slice(0, 1).toUpperCase()}</span>
+              <span className="sidebar__profile-name">
+                <strong>{profileSession.name}</strong>
+                <small>{profileSession.role}{profileSession.email ? ` · ${profileSession.email}` : ""}</small>
+              </span>
+              <button
+                className="sidebar__change-profile"
+                onClick={logout}
+                title="Changer de profil / déconnexion"
+                type="button"
+              >Changer de profil</button>
+            </>
+          ) : (
+            <span><strong>Choisissez un profil</strong></span>
+          )}
         </div>
       </aside>
 
       <main className="main-content">
         <header className="topbar">
           <div><span className="topbar__crumb">STATS VOLLEY</span><span className="topbar__divider">/</span> SAISON 2026—2027</div>
-          <div className="topbar__profile">
-            <label>
-              Profil
-              <select
-                aria-label="Profil de démonstration"
-                onChange={(event) => setProfile(event.target.value)}
-                value={profile}
-              >
-                <option value="Coach">Coach / Entraîneur</option>
-                <option value="Joueur">Joueur</option>
-                <option value="Invité">Invité</option>
-              </select>
-            </label>
-            {profile === "Joueur" && (
-              <label>
-                Joueur
-                <select
-                  aria-label="Joueur connecté"
-                  onChange={(event) => setPlayerId(event.target.value)}
-                  value={playerId}
-                >
-                  {players.filter((player) => player.role === "Joueur").map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.number ? `#${player.number} ` : ""}{player.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <span className="topbar__status"><i /> Profil actif</span>
-          </div>
+          {profileSession && (
+            <div className="topbar__session">
+              <span className="topbar__status">
+                <i /> Connecté comme {profileSession.role}
+              </span>
+              <button
+                className="topbar__change-profile"
+                onClick={logout}
+                type="button"
+              >Changer de profil</button>
+            </div>
+          )}
         </header>
         <div className="page-content">
           {page === "home" && (
@@ -414,6 +422,9 @@ function AppContent() {
             (training) => String(training.id) === String(selectedTraining.id),
           ) || selectedTraining}
         />
+      )}
+      {!profileSession && (
+        <WelcomeAuthModal onAuthenticated={setProfileSession} />
       )}
     </div>
   );

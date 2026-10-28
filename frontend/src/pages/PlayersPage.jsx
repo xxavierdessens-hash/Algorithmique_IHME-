@@ -7,6 +7,7 @@ const ROLES = ["Coach", "Joueur", "Invité"];
 const EMPTY_FORM = {
   first_name: "",
   last_name: "",
+  email: "",
   number: "",
   position: "",
   role: "Joueur",
@@ -50,6 +51,7 @@ export default function PlayersPage({ canManage = false }) {
     setForm({
       first_name: player.first_name,
       last_name: player.last_name,
+      email: player.email || "",
       number: player.number == null ? "" : String(player.number),
       position: player.position || "",
       role: player.role || "Joueur",
@@ -133,6 +135,7 @@ export default function PlayersPage({ canManage = false }) {
                 <span className="player-card__number">{player.number ?? "—"}</span>
                 <div className="player-card__identity">
                   <h3>{player.first_name} {player.last_name}</h3>
+                  <small className="player-card__email">{player.email}</small>
                   <span className="tag">{player.role}</span>
                   {player.position && <span className="tag">{player.position}</span>}
                 </div>
@@ -198,6 +201,17 @@ export default function PlayersPage({ canManage = false }) {
                   onChange={(event) => setForm({ ...form, first_name: event.target.value })}
                   required
                   value={form.first_name}
+                />
+              </label>
+              <label>
+                Email
+                <input
+                  autoComplete="email"
+                  maxLength={254}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  required
+                  type="email"
+                  value={form.email}
                 />
               </label>
               <label>
