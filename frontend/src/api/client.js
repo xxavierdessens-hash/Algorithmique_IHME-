@@ -31,6 +31,7 @@ async function request(path, options = {}) {
 export const api = {
   getMatches: () => request("/api/matches"),
   getTrainings: () => request("/api/trainings"),
+  getAttendance: () => request("/api/attendance"),
   createTraining: (training) =>
     request("/api/trainings", {
       method: "POST",

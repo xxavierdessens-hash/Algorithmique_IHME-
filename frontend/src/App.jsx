@@ -34,6 +34,9 @@ function AppContent() {
   );
   const [matches, setMatches] = useState([]);
   const [trainings, setTrainings] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [attendanceError, setAttendanceError] = useState("");
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,6 +65,32 @@ function AppContent() {
       active = false;
     };
   }, []);
+
+  const attendanceEventKey = [
+    ...matches.map((match) => `match:${match.id}`),
+    ...trainings.map((training) => `training:${training.id}`),
+  ].join("|");
+
+  useEffect(() => {
+    let active = true;
+    setAttendanceLoading(true);
+    api.getAttendance()
+      .then((result) => {
+        if (active) {
+          setAttendance(result);
+          setAttendanceError("");
+        }
+      })
+      .catch((requestError) => {
+        if (active) setAttendanceError(requestError.message);
+      })
+      .finally(() => {
+        if (active) setAttendanceLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [attendanceEventKey]);
 
   function navigateTo(nextPage) {
     const item = NAV_ITEMS.find((navItem) => navItem.id === nextPage);
@@ -190,8 +219,12 @@ function AppContent() {
           {page === "home" && (
             <HomePage
               loading={loading}
+              attendance={attendance}
+              attendanceError={attendanceError}
+              attendanceLoading={attendanceLoading}
               matches={matches}
               onNavigate={navigateTo}
+              onOpenMatch={openMatch}
               trainingError={trainingLoadError}
               trainings={trainings}
             />
