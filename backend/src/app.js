@@ -6,6 +6,7 @@ import statisticsRouter from "./routes/statistics.js";
 import analyticsRouter from "./routes/analytics.js";
 import trainingsRouter from "./routes/trainings.js";
 import drillsRouter from "./routes/drills.js";
+import attendanceRouter from "./routes/attendance.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { healthController } from "./controllers/healthController.js";
 import { existsSync } from "node:fs";
@@ -25,6 +26,7 @@ app.use("/api/statistics", statisticsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/trainings", trainingsRouter);
 app.use("/api/drills", drillsRouter);
+app.use("/api/attendance", attendanceRouter);
 
 if (existsSync(frontendIndex)) {
   app.use(express.static(frontendDirectory, { index: false }));

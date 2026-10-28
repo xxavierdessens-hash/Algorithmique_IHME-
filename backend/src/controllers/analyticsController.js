@@ -106,7 +106,7 @@ export async function progression(request, response) {
 
   if (playerId !== null) {
     const player = await query(
-      "SELECT id FROM players WHERE id = $1 AND active = TRUE",
+      "SELECT id FROM players WHERE id = $1 AND active = TRUE AND role = 'Joueur'",
       [playerId],
     );
     if (player.rowCount === 0) {
@@ -126,7 +126,7 @@ export async function progression(request, response) {
      CROSS JOIN players p
      LEFT JOIN match_player_stats s
        ON s.match_id = m.id AND s.player_id = p.id
-     WHERE m.status = 'Terminé' AND p.active = TRUE
+     WHERE m.status = 'Terminé' AND p.active = TRUE AND p.role = 'Joueur'
      ORDER BY m.match_date ASC, p.id ASC`,
   );
 

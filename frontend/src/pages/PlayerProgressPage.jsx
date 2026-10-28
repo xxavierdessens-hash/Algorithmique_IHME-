@@ -67,7 +67,7 @@ export default function PlayerProgressPage() {
 
   useEffect(() => {
     let active = true;
-    api.getPlayers()
+    api.getPlayers("Joueur")
       .then((result) => {
         if (active) setPlayers(result);
       })

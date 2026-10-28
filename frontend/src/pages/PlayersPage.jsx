@@ -3,7 +3,14 @@ import { api } from "../api/client.js";
 import StatusMessage from "../components/StatusMessage.jsx";
 
 const POSITIONS = ["Passeur", "R4", "Central", "Pointu", "Libéro"];
-const EMPTY_FORM = { first_name: "", last_name: "", number: "", position: "" };
+const ROLES = ["Coach", "Joueur", "Invité"];
+const EMPTY_FORM = {
+  first_name: "",
+  last_name: "",
+  number: "",
+  position: "",
+  role: "Joueur",
+};
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState([]);
@@ -44,7 +51,8 @@ export default function PlayersPage() {
       first_name: player.first_name,
       last_name: player.last_name,
       number: player.number == null ? "" : String(player.number),
-      position: player.position,
+      position: player.position || "",
+      role: player.role || "Joueur",
     });
     setError("");
     setModalOpen(true);
@@ -54,7 +62,11 @@ export default function PlayersPage() {
     event.preventDefault();
     setSaving(true);
     setError("");
-    const playerData = { ...form, number: Number(form.number) };
+    const playerData = {
+      ...form,
+      number: form.number === "" ? null : Number(form.number),
+      position: form.position || null,
+    };
     try {
       const savedPlayer = editingPlayer
         ? await api.updatePlayer(editingPlayer.id, playerData)
@@ -63,7 +75,11 @@ export default function PlayersPage() {
         const updated = editingPlayer
           ? current.map((player) => player.id === savedPlayer.id ? savedPlayer : player)
           : [...current, savedPlayer];
-        return updated.sort((first, second) => first.number - second.number);
+        return updated.sort(
+          (first, second) =>
+            (first.number ?? Number.POSITIVE_INFINITY) -
+            (second.number ?? Number.POSITIVE_INFINITY),
+        );
       });
       setModalOpen(false);
       setEditingPlayer(null);
@@ -96,7 +112,7 @@ export default function PlayersPage() {
           <h2>Gestion de l'effectif</h2>
         </div>
         <div className="calendar-heading-actions">
-          <span className="count-pill">{players.length} joueur(s)</span>
+          <span className="count-pill">{players.length} membre(s)</span>
           <button className="button button--primary" onClick={openAddModal} type="button">
             Ajouter un joueur
           </button>
@@ -117,7 +133,8 @@ export default function PlayersPage() {
                 <span className="player-card__number">{player.number ?? "—"}</span>
                 <div className="player-card__identity">
                   <h3>{player.first_name} {player.last_name}</h3>
-                  <span className="tag">{player.position}</span>
+                  <span className="tag">{player.role}</span>
+                  {player.position && <span className="tag">{player.position}</span>}
                 </div>
                 <div className="player-card__actions">
                   <button
@@ -193,12 +210,31 @@ export default function PlayersPage() {
                 />
               </label>
               <label>
+                Rôle
+                <select
+                  onChange={(event) => {
+                    const role = event.target.value;
+                    setForm({
+                      ...form,
+                      role,
+                      ...(role === "Joueur" ? {} : { number: "", position: "" }),
+                    });
+                  }}
+                  required
+                  value={form.role}
+                >
+                  {ROLES.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
                 Numéro
                 <input
                   max={99}
                   min={1}
                   onChange={(event) => setForm({ ...form, number: event.target.value })}
-                  required
+                  required={form.role === "Joueur"}
                   type="number"
                   value={form.number}
                 />
@@ -207,7 +243,7 @@ export default function PlayersPage() {
                 Poste
                 <select
                   onChange={(event) => setForm({ ...form, position: event.target.value })}
-                  required
+                  required={form.role === "Joueur"}
                   value={form.position}
                 >
                   <option disabled value="">Choisir un poste</option>

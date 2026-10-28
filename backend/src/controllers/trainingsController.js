@@ -53,7 +53,12 @@ const TRAINING_SELECT = `
              ) ORDER BY td.order_index
            ) FILTER (WHERE d.id IS NOT NULL),
            '[]'::json
-         ) AS drills
+         ) AS drills,
+         COALESCE(
+           json_agg(d.title ORDER BY td.order_index)
+             FILTER (WHERE d.id IS NOT NULL),
+           '[]'::json
+         ) AS exercises
   FROM trainings t
   LEFT JOIN training_drills td ON td.training_id = t.id
   LEFT JOIN drills d ON d.id = td.drill_id`;
@@ -74,20 +79,31 @@ export async function createTraining(request, response) {
       error: "Renseignez une date, un créneau valide, un lieu et un thème.",
     });
   }
-  const { rows } = await query(
-    `INSERT INTO trainings (date, start_time, end_time, location, theme, notes)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, date, start_time, end_time, location, theme, notes`,
-    [
-      training.date,
-      training.startTime,
-      training.endTime,
-      training.location,
-      training.theme,
-      training.notes,
-    ],
-  );
-  response.status(201).json({ ...rows[0], drills: [] });
+  const createdTraining = await withTransaction(async (client) => {
+    const { rows } = await client.query(
+      `INSERT INTO trainings (date, start_time, end_time, location, theme, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, date, start_time, end_time, location, theme, notes`,
+      [
+        training.date,
+        training.startTime,
+        training.endTime,
+        training.location,
+        training.theme,
+        training.notes,
+      ],
+    );
+    await client.query(
+      `INSERT INTO attendance (player_id, event_type, event_id, status)
+       SELECT id, 'Training', $1, 'En attente'
+       FROM players
+       WHERE active = TRUE AND $2::date >= CURRENT_DATE
+       ON CONFLICT (player_id, event_type, event_id) DO NOTHING`,
+      [rows[0].id, training.date],
+    );
+    return rows[0];
+  });
+  response.status(201).json({ ...createdTraining, drills: [], exercises: [] });
 }
 
 export async function updateTraining(request, response) {
@@ -134,8 +150,20 @@ export async function deleteTraining(request, response) {
   if (!id) {
     return response.status(400).json({ error: "Identifiant de séance invalide." });
   }
-  const result = await query("DELETE FROM trainings WHERE id = $1", [id]);
-  if (!result.rowCount) {
+  const deleted = await withTransaction(async (client) => {
+    const training = await client.query(
+      "SELECT id FROM trainings WHERE id = $1 FOR UPDATE",
+      [id],
+    );
+    if (!training.rowCount) return false;
+    await client.query(
+      "DELETE FROM attendance WHERE event_type = 'Training' AND event_id = $1",
+      [id],
+    );
+    await client.query("DELETE FROM trainings WHERE id = $1", [id]);
+    return true;
+  });
+  if (!deleted) {
     return response.status(404).json({ error: "Séance introuvable." });
   }
   response.status(204).end();

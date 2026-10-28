@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS players (
   last_name TEXT,
   number INTEGER,
   position TEXT,
+  role TEXT NOT NULL DEFAULT 'Joueur',
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -11,6 +12,7 @@ CREATE TABLE IF NOT EXISTS players (
 ALTER TABLE players ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS number INTEGER;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Joueur';
 
 DO $$
 BEGIN
@@ -49,7 +51,9 @@ BEGIN
 END $$;
 
 UPDATE players SET first_name = 'Joueur' WHERE first_name IS NULL OR first_name = '';
-UPDATE players SET position = 'R4' WHERE position IS NULL OR position = '';
+UPDATE players
+SET position = 'R4'
+WHERE (position IS NULL OR position = '') AND role = 'Joueur';
 UPDATE players SET position = CASE position
   WHEN 'Réceptionneuse-attaquante' THEN 'R4'
   WHEN 'Réceptionneur-attaquant' THEN 'R4'
@@ -66,6 +70,13 @@ ALTER TABLE players ADD CONSTRAINT players_number_positive
 ALTER TABLE players DROP CONSTRAINT IF EXISTS players_position_check;
 ALTER TABLE players ADD CONSTRAINT players_position_check
   CHECK (position IN ('Passeur', 'R4', 'Central', 'Pointu', 'Libéro'));
+ALTER TABLE players DROP CONSTRAINT IF EXISTS players_role_check;
+UPDATE players SET role = 'Joueur'
+WHERE role IS NULL OR role NOT IN ('Coach', 'Joueur', 'Invité');
+ALTER TABLE players ALTER COLUMN role SET DEFAULT 'Joueur';
+ALTER TABLE players ALTER COLUMN role SET NOT NULL;
+ALTER TABLE players ADD CONSTRAINT players_role_check
+  CHECK (role IN ('Coach', 'Joueur', 'Invité'));
 
 CREATE TABLE IF NOT EXISTS matches (
   id BIGSERIAL PRIMARY KEY,
@@ -84,6 +95,8 @@ ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_home INTEGER NOT NULL DEFAULT
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS score_away INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS current_set_home INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE matches ADD COLUMN IF NOT EXISTS current_set_away INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS points_detail JSONB;
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS sets_score TEXT;
 ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_score_home_nonnegative;
 ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_score_away_nonnegative;
 ALTER TABLE matches ADD CONSTRAINT matches_score_home_nonnegative CHECK (score_home >= 0);
@@ -118,6 +131,9 @@ END;
 ALTER TABLE matches ALTER COLUMN status SET DEFAULT 'À venir';
 ALTER TABLE matches ADD CONSTRAINT matches_status_check
   CHECK (status IN ('À venir', 'En cours', 'Terminé'));
+UPDATE matches
+SET sets_score = score_home::text || '-' || score_away::text
+WHERE sets_score IS NULL OR sets_score = '';
 
 CREATE TABLE IF NOT EXISTS match_player_stats (
   match_id BIGINT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
@@ -167,6 +183,17 @@ CREATE TABLE IF NOT EXISTS trainings (
   CHECK (end_time > start_time)
 );
 
+CREATE TABLE IF NOT EXISTS attendance (
+  id BIGSERIAL PRIMARY KEY,
+  player_id BIGINT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN ('Match', 'Training')),
+  event_id BIGINT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'En attente'
+    CHECK (status IN ('Présent', 'Absent', 'En attente')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (player_id, event_type, event_id)
+);
+
 CREATE TABLE IF NOT EXISTS drills (
   id BIGSERIAL PRIMARY KEY,
   title TEXT NOT NULL,
@@ -199,5 +226,7 @@ CREATE TABLE IF NOT EXISTS training_drills (
 );
 
 CREATE INDEX IF NOT EXISTS trainings_date_idx ON trainings(date, start_time);
+CREATE INDEX IF NOT EXISTS attendance_event_idx
+  ON attendance(event_type, event_id);
 CREATE INDEX IF NOT EXISTS drills_category_idx ON drills(category);
 CREATE INDEX IF NOT EXISTS training_drills_drill_idx ON training_drills(drill_id);

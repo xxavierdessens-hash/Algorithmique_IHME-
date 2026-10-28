@@ -71,7 +71,10 @@ export const api = {
     }),
   deleteMatch: (matchId) =>
     request(`/api/matches/${matchId}`, { method: "DELETE" }),
-  getPlayers: () => request("/api/players"),
+  getPlayers: (role) => {
+    const query = role ? `?role=${encodeURIComponent(role)}` : "";
+    return request(`/api/players${query}`);
+  },
   createPlayer: (player) =>
     request("/api/players", {
       method: "POST",

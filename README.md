@@ -70,6 +70,20 @@ Le schéma et les données de démonstration sont créés au démarrage de l'API
 La variable `VITE_API_URL` peut être définie côté frontend ; elle vaut
 `http://localhost:3000` par défaut.
 
+Le seed PostgreSQL est idempotent : il complète un effectif de démonstration,
+crée cinq matchs terminés avec scores détaillés et statistiques individuelles,
+ainsi que cinq matchs à venir. Il génère aussi deux entraînements par semaine
+jusqu'au 31 janvier à venir, avec des exercices issus de la bibliothèque. Les
+présences des événements à venir commencent à `En attente`. Les données métier
+déjà présentes ne sont pas supprimées.
+
+Les joueurs acceptent les rôles `Coach`, `Joueur` et `Invité`. Les joueurs
+actifs de rôle `Joueur` uniquement alimentent les statistiques de match et de
+progression. Les présences sont consultables sur `GET /api/attendance` ou pour
+un événement avec `?event_type=Match&event_id=1` (ou `Training`) et modifiables
+avec `PUT /api/attendance`, en envoyant `player_id`, `event_type`, `event_id`
+et un statut parmi `Présent`, `Absent` et `En attente`.
+
 ## Fonctionnalités du squelette
 
 - Calendrier des matchs trié par date, ajout via une modale, état, lieu et score.

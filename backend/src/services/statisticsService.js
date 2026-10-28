@@ -30,7 +30,7 @@ const MATCH_STATISTICS_SQL = `
     END AS attack_ratio
   FROM players p
   LEFT JOIN match_player_stats s ON s.player_id = p.id AND s.match_id = $1
-  WHERE p.active = TRUE
+  WHERE p.active = TRUE AND p.role = 'Joueur'
   ORDER BY p.number NULLS LAST, p.last_name, p.first_name
 `;
 
@@ -71,7 +71,7 @@ export async function getSeasonProgression() {
        END AS attack_ratio
      FROM players p
      LEFT JOIN match_player_stats s ON s.player_id = p.id
-     WHERE p.active = TRUE
+     WHERE p.active = TRUE AND p.role = 'Joueur'
      GROUP BY p.id
      ORDER BY points DESC, p.number NULLS LAST, p.last_name, p.first_name`,
   );
