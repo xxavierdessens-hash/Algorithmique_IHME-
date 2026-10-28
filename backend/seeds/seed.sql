@@ -282,7 +282,8 @@ WITH season AS (
     31
   ) AS end_date
 ), training_dates AS (
-  SELECT training_date::date AS date, training_time::time AS start_time
+  SELECT sessions.training_date::date AS date,
+         sessions.training_time::time AS start_time
   FROM season,
   LATERAL generate_series(
     date_trunc('week', CURRENT_DATE)::date + INTERVAL '1 day',
