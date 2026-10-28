@@ -95,6 +95,9 @@ export async function updateMatch(request, response) {
   const body = request.body ?? {};
   const {
     status,
+    opponent,
+    match_date: matchDate,
+    location,
     score_home: scoreHome,
     score_away: scoreAway,
     current_set_home: currentSetHome,
@@ -111,10 +114,16 @@ export async function updateMatch(request, response) {
     (setsScoreParts ? Number(setsScoreParts[2]) : undefined);
   const normalizedSetsScore = requestedSetsScore ?? null;
   if (
-    (status === undefined && scoreHome === undefined && scoreAway === undefined &&
+    (status === undefined && opponent === undefined && matchDate === undefined &&
+      location === undefined && scoreHome === undefined && scoreAway === undefined &&
       currentSetHome === undefined && currentSetAway === undefined &&
       requestedSetsScore === undefined && pointsDetail === undefined) ||
     (status !== undefined && !MATCH_STATUSES.has(status)) ||
+    (opponent !== undefined &&
+      (typeof opponent !== "string" || opponent.trim() === "" || opponent.length > 120)) ||
+    (matchDate !== undefined && !isValidMatchDate(matchDate)) ||
+    (location !== undefined && location !== null &&
+      (typeof location !== "string" || location.length > 200)) ||
     (requestedSetsScore !== undefined && !setsScoreParts) ||
     (normalizedScoreHome !== undefined &&
       (!Number.isInteger(normalizedScoreHome) || normalizedScoreHome < 0)) ||
@@ -163,7 +172,10 @@ export async function updateMatch(request, response) {
              ELSE sets_score
            END
          ),
-         points_detail = CASE WHEN $9 THEN $8::jsonb ELSE points_detail END
+         points_detail = CASE WHEN $9 THEN $8::jsonb ELSE points_detail END,
+         opponent = COALESCE($10, opponent),
+         match_date = COALESCE($11, match_date),
+         location = CASE WHEN $12 THEN $13 ELSE location END
      WHERE id = $1
      RETURNING id, opponent, location, location AS venue, match_date, status,
                score_home, score_away, current_set_home, current_set_away,
@@ -178,6 +190,10 @@ export async function updateMatch(request, response) {
       normalizedSetsScore,
       pointsDetail == null ? null : JSON.stringify(pointsDetail),
       Object.prototype.hasOwnProperty.call(body, "points_detail"),
+      opponent?.trim() ?? null,
+      matchDate == null ? null : new Date(matchDate).toISOString(),
+      Object.prototype.hasOwnProperty.call(body, "location"),
+      location?.trim() || null,
     ],
   );
   if (rows.length === 0) {

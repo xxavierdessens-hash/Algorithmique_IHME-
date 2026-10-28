@@ -12,7 +12,7 @@ const EMPTY_FORM = {
   role: "Joueur",
 };
 
-export default function PlayersPage() {
+export default function PlayersPage({ canManage = false }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -113,9 +113,9 @@ export default function PlayersPage() {
         </div>
         <div className="calendar-heading-actions">
           <span className="count-pill">{players.length} membre(s)</span>
-          <button className="button button--primary" onClick={openAddModal} type="button">
+          {canManage && <button className="button button--primary" onClick={openAddModal} type="button">
             Ajouter un joueur
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -136,7 +136,7 @@ export default function PlayersPage() {
                   <span className="tag">{player.role}</span>
                   {player.position && <span className="tag">{player.position}</span>}
                 </div>
-                <div className="player-card__actions">
+                {canManage && <div className="player-card__actions">
                   <button
                     aria-label={`Modifier ${player.first_name} ${player.last_name}`}
                     className="button button--secondary"
@@ -153,14 +153,14 @@ export default function PlayersPage() {
                   >
                     Supprimer
                   </button>
-                </div>
+                </div>}
               </article>
             ))}
           </div>
         )}
       </StatusMessage>
 
-      {modalOpen && (
+      {modalOpen && canManage && (
         <div
           className="modal-backdrop"
           onClick={(event) => {

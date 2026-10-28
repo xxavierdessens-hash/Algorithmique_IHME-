@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AttendanceControls from "../components/AttendanceControls.jsx";
 import StatusMessage from "../components/StatusMessage.jsx";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -16,6 +17,13 @@ const statusClasses = {
   "Terminé": "completed",
 };
 
+function localDateTime(value) {
+  const date = new Date(value);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 export default function CalendarPage({
   matches,
   loading,
@@ -24,6 +32,13 @@ export default function CalendarPage({
   onOpenSummary,
   onCreateMatch,
   onUpdateMatch,
+  onDeleteMatch,
+  attendance,
+  attendanceError,
+  onAttendanceChange,
+  attendanceSaving,
+  profile,
+  playerId,
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,10 +61,18 @@ export default function CalendarPage({
     setCreationError("");
     try {
       if (editingMatch) {
-        await onUpdateMatch(editingMatch.id, {
-          score_home: Number(form.score_home),
-          score_away: Number(form.score_away),
-        });
+        if (editingMatch.status === "Terminé") {
+          await onUpdateMatch(editingMatch.id, {
+            score_home: Number(form.score_home),
+            score_away: Number(form.score_away),
+          });
+        } else {
+          await onUpdateMatch(editingMatch.id, {
+            opponent: form.opponent,
+            match_date: new Date(form.match_date).toISOString(),
+            location: form.location,
+          });
+        }
       } else {
         await onCreateMatch({
           opponent: form.opponent,
@@ -82,13 +105,13 @@ export default function CalendarPage({
         </div>
         <div className="calendar-heading-actions">
           <span className="count-pill">{matches.length} match(s)</span>
-          <button
+          {profile === "Coach" && <button
             className="button button--primary"
             onClick={() => { setCreationError(""); setEditingMatch(null); setModalOpen(true); }}
             type="button"
           >
             Ajouter un match
-          </button>
+          </button>}
         </div>
       </div>
       {creationError && (
@@ -122,16 +145,34 @@ export default function CalendarPage({
                     )}
                   </div>
                   <div className="match-card__actions">
-                    {match.status !== "Terminé" && (
-                      <button
-                        className="button button--secondary"
-                        onClick={() => onOpenMatch(match)}
-                        type="button"
-                      >
-                        {match.status === "En cours" ? "Reprendre le live" : "Ouvrir le live"}
-                      </button>
+                    {profile === "Coach" && match.status !== "Terminé" && (
+                      <>
+                        <button
+                          className="button button--secondary"
+                          onClick={() => onOpenMatch(match)}
+                          type="button"
+                        >
+                          {match.status === "En cours" ? "Reprendre le live" : "Ouvrir le live"}
+                        </button>
+                        <button
+                          className="button button--secondary"
+                          onClick={() => {
+                            setCreationError("");
+                            setEditingMatch(match);
+                            setForm({
+                              opponent: match.opponent,
+                              match_date: localDateTime(match.match_date),
+                              location: match.location || "",
+                              score_home: String(match.score_home),
+                              score_away: String(match.score_away),
+                            });
+                            setModalOpen(true);
+                          }}
+                          type="button"
+                        >Modifier</button>
+                      </>
                     )}
-                    {match.status === "Terminé" && (
+                    {profile === "Coach" && match.status === "Terminé" && (
                       <button
                         className="button button--secondary"
                         onClick={() => {
@@ -158,15 +199,41 @@ export default function CalendarPage({
                         type="button"
                       >Fiche récap</button>
                     )}
+                    {profile === "Coach" && (
+                      <button
+                        className="button button--danger"
+                        onClick={async () => {
+                          if (!window.confirm(`Supprimer le match contre ${match.opponent} ?`)) return;
+                          try {
+                            await onDeleteMatch(match.id);
+                          } catch (requestError) {
+                            setCreationError(requestError.message);
+                          }
+                        }}
+                        type="button"
+                      >Supprimer</button>
+                    )}
                   </div>
                 </div>
+                {match.status !== "Terminé" && (
+                  <AttendanceControls
+                    attendance={attendance}
+                    error={attendanceError}
+                    eventId={match.id}
+                    eventType="Match"
+                    onChange={onAttendanceChange}
+                    playerId={playerId}
+                    profile={profile}
+                    saving={attendanceSaving}
+                  />
+                )}
               </article>
             ))}
           </div>
         )}
       </StatusMessage>
 
-      {modalOpen && (
+      {modalOpen && profile === "Coach" && (
         <div
           className="modal-backdrop"
           onClick={(event) => {
@@ -183,7 +250,11 @@ export default function CalendarPage({
               <div>
                 <p className="eyebrow">Calendrier</p>
                 <h2 id="add-match-title">
-                  {editingMatch ? "Modifier le score final" : "Ajouter un match"}
+                  {!editingMatch
+                    ? "Ajouter un match"
+                    : editingMatch.status === "Terminé"
+                      ? "Modifier le score final"
+                      : "Modifier le match"}
                 </h2>
               </div>
               <button
@@ -196,6 +267,7 @@ export default function CalendarPage({
             </div>
             <form className="match-form" onSubmit={submitMatch}>
               {editingMatch ? (
+                editingMatch.status === "Terminé" ? (
                 <>
                   <p>StatsVolley vs {editingMatch.opponent}</p>
                   <label>
@@ -207,6 +279,22 @@ export default function CalendarPage({
                     <input min="0" onChange={(event) => setForm({ ...form, score_away: event.target.value })} required type="number" value={form.score_away} />
                   </label>
                 </>
+                ) : (
+                  <>
+                    <label>
+                      Adversaire
+                      <input maxLength={120} onChange={(event) => setForm({ ...form, opponent: event.target.value })} required value={form.opponent} />
+                    </label>
+                    <label>
+                      Date et heure
+                      <input onChange={(event) => setForm({ ...form, match_date: event.target.value })} required type="datetime-local" value={form.match_date} />
+                    </label>
+                    <label>
+                      Lieu
+                      <input maxLength={200} onChange={(event) => setForm({ ...form, location: event.target.value })} value={form.location} />
+                    </label>
+                  </>
+                )
               ) : (
                 <>
                   <label>

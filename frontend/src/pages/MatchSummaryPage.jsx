@@ -27,7 +27,7 @@ function formatMetric(value, setsPlayed, displayMode, unit = "") {
   return <>{totalLabel}<span className="summary-table__subvalue">{ratio}/set · {setsLabel}</span></>;
 }
 
-export default function MatchSummaryPage({ matches, initialMatch }) {
+export default function MatchSummaryPage({ matches, initialMatch, canManage = false }) {
   const [selectedId, setSelectedId] = useState(initialMatch?.id ?? "");
   const [rows, setRows] = useState([]);
   const [setsDraft, setSetsDraft] = useState({});
@@ -234,26 +234,28 @@ export default function MatchSummaryPage({ matches, initialMatch }) {
                       <td>{formatMetric(player.serve_aces, player.sets_played, displayMode)}</td>
                       <td>{formatMetric(player.block_points, player.sets_played, displayMode)}</td>
                       <td>
-                        <label className="summary-table__sets">
-                          <input
-                            aria-label={`Sets joués par ${player.name}`}
-                            disabled={setsSaving === String(player.id)}
-                            max="5"
-                            min="0"
-                            onBlur={() => saveSetsPlayed(player.id)}
-                            onChange={(event) => setSetsDraft((current) => ({
-                              ...current,
-                              [player.id]: event.target.value,
-                            }))}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") event.currentTarget.blur();
-                            }}
-                            step="0.5"
-                            type="number"
-                            value={setsDraft[player.id] ?? player.sets_played ?? 0}
-                          />
-                          <small>sets</small>
-                        </label>
+                        {canManage ? (
+                          <label className="summary-table__sets">
+                            <input
+                              aria-label={`Sets joués par ${player.name}`}
+                              disabled={setsSaving === String(player.id)}
+                              max="5"
+                              min="0"
+                              onBlur={() => saveSetsPlayed(player.id)}
+                              onChange={(event) => setSetsDraft((current) => ({
+                                ...current,
+                                [player.id]: event.target.value,
+                              }))}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") event.currentTarget.blur();
+                              }}
+                              step="0.5"
+                              type="number"
+                              value={setsDraft[player.id] ?? player.sets_played ?? 0}
+                            />
+                            <small>sets</small>
+                          </label>
+                        ) : <span>{player.sets_played ?? 0} sets</span>}
                       </td>
                     </tr>
                   ))}

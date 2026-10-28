@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import AttendanceControls from "../components/AttendanceControls.jsx";
 
 const HOME_LINKS = [
   { id: "calendar", title: "Calendrier", detail: "Tous les rendez-vous", icon: "◷" },
@@ -18,20 +19,6 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   minute: "2-digit",
 });
 
-function attendanceSummary(rows) {
-  if (!rows.length) return "Présences à confirmer";
-
-  const counts = rows.reduce((summary, row) => {
-    summary[row.status] = (summary[row.status] || 0) + 1;
-    return summary;
-  }, {});
-  return [
-    `${counts["Présent"] || 0} présent${counts["Présent"] === 1 ? "" : "s"}`,
-    `${counts["En attente"] || 0} en attente`,
-    `${counts.Absent || 0} absent${counts.Absent === 1 ? "" : "s"}`,
-  ].join(" · ");
-}
-
 export default function HomePage({
   matches,
   trainings,
@@ -41,7 +28,11 @@ export default function HomePage({
   trainingError,
   loading,
   onNavigate,
-  onOpenMatch,
+  onOpenTraining,
+  onAttendanceChange,
+  attendanceSaving,
+  profile,
+  playerId,
 }) {
   const upcomingEvents = useMemo(() => {
     const now = new Date();
@@ -57,7 +48,6 @@ export default function HomePage({
           subtitle: "Match",
           location: match.location || match.venue || "Lieu à confirmer",
           date: new Date(match.match_date),
-          action: () => onOpenMatch(match),
         })),
       ...trainings.map((training) => ({
         id: `training-${training.id}`,
@@ -70,13 +60,13 @@ export default function HomePage({
         date: new Date(
           `${String(training.date).slice(0, 10)}T${String(training.start_time).slice(0, 5)}`,
         ),
-        action: () => onNavigate("trainings"),
+        training,
       })),
     ]
       .filter((event) => !Number.isNaN(event.date.getTime()) && event.date >= now)
       .sort((first, second) => first.date - second.date)
       .slice(0, 8);
-  }, [matches, onNavigate, onOpenMatch, trainings]);
+  }, [matches, trainings]);
 
   return (
     <section className="home-page">
@@ -108,35 +98,47 @@ export default function HomePage({
                 String(row.event_id) === String(event.eventId),
             );
             return (
-              <button
+              <article
                 className={`upcoming-card upcoming-card--${event.kind}`}
                 key={event.id}
-                onClick={event.action}
-                type="button"
               >
-                <span className="upcoming-card__date">
+                <div className="upcoming-card__date">
                   <strong>{event.date.getDate()}</strong>
                   <span>{new Intl.DateTimeFormat("fr-FR", { month: "short" })
                     .format(event.date).replace(".", "")}</span>
-                </span>
-                <span className="upcoming-card__main">
+                </div>
+                <div className="upcoming-card__main">
                   <span className="upcoming-card__eyebrow">{event.subtitle}</span>
-                  <strong>{event.title}</strong>
+                  {event.kind === "training" ? (
+                    <button
+                      className="upcoming-card__title"
+                      onClick={() => onOpenTraining(event.training)}
+                      type="button"
+                    >{event.title}</button>
+                  ) : <strong>{event.title}</strong>}
                   <small>
                     {dateFormatter.format(event.date)} · {timeFormatter.format(event.date)}
                     {" · "}{event.location}
                   </small>
-                  <span className="upcoming-card__attendance">
-                    <span aria-hidden="true">●</span>
-                    {attendanceError
-                      ? "Présences indisponibles"
-                      : attendanceLoading
-                        ? "Chargement des présences…"
-                        : attendanceSummary(eventAttendance)}
-                  </span>
-                </span>
-                <span aria-hidden="true" className="upcoming-card__arrow">↗</span>
-              </button>
+                  {attendanceError ? (
+                    <span className="upcoming-card__attendance">Présences indisponibles</span>
+                  ) : attendanceLoading ? (
+                    <span className="upcoming-card__attendance">Chargement des présences…</span>
+                  ) : (
+                    <AttendanceControls
+                      attendance={eventAttendance}
+                      error={attendanceError}
+                      eventId={event.eventId}
+                      eventType={event.eventType}
+                      onChange={onAttendanceChange}
+                      playerId={playerId}
+                      profile={profile}
+                      saving={attendanceSaving}
+                    />
+                  )}
+                </div>
+                {event.kind === "training" && <span aria-hidden="true" className="upcoming-card__arrow">↗</span>}
+              </article>
             );
           })
         ) : (

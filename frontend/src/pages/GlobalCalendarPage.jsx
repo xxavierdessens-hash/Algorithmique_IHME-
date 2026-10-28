@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import AttendanceControls from "../components/AttendanceControls.jsx";
 import StatusMessage from "../components/StatusMessage.jsx";
 
 const DAY_NAMES = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -35,7 +36,13 @@ export default function GlobalCalendarPage({
   error,
   onOpenMatch,
   onOpenSummary,
-  onOpenTrainings,
+  onOpenTraining,
+  attendance,
+  attendanceError,
+  onAttendanceChange,
+  attendanceSaving,
+  profile,
+  playerId,
 }) {
   const [view, setView] = useState("month");
   const [anchorDate, setAnchorDate] = useState(() => new Date());
@@ -118,7 +125,7 @@ export default function GlobalCalendarPage({
 
   function eventAction(event) {
     if (event.kind === "training") {
-      onOpenTrainings();
+      onOpenTraining(event.training);
     } else if (event.status === "Terminé") {
       onOpenSummary(event.match);
     } else {
@@ -236,12 +243,26 @@ export default function GlobalCalendarPage({
                     <span className="tag">{event.kind === "match" ? "Match" : "Entraînement"}</span>
                     <h3>{event.title}</h3>
                     <p>{event.location} · {timeFormatter.format(event.date)}</p>
+                    {event.kind === "match" && event.status !== "Terminé" && (
+                      <AttendanceControls
+                        attendance={attendance}
+                        error={attendanceError}
+                        eventId={event.match.id}
+                        eventType="Match"
+                        onChange={onAttendanceChange}
+                        playerId={playerId}
+                        profile={profile}
+                        saving={attendanceSaving}
+                      />
+                    )}
                   </div>
-                  <button className="button button--secondary" onClick={() => eventAction(event)} type="button">
-                    {event.kind === "training"
-                      ? "Voir la séance"
-                      : event.status === "Terminé" ? "Fiche récap" : "Ouvrir le live"}
-                  </button>
+                  {(event.kind === "training" || event.status === "Terminé" || profile === "Coach") && (
+                    <button className="button button--secondary" onClick={() => eventAction(event)} type="button">
+                      {event.kind === "training"
+                        ? "Voir la séance"
+                        : event.status === "Terminé" ? "Fiche récap" : "Ouvrir le live"}
+                    </button>
+                  )}
                 </article>
               ))}
             </div>

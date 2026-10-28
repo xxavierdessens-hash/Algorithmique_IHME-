@@ -32,6 +32,16 @@ export const api = {
   getMatches: () => request("/api/matches"),
   getTrainings: () => request("/api/trainings"),
   getAttendance: () => request("/api/attendance"),
+  setAttendance: (playerId, eventType, eventId, status) =>
+    request("/api/attendance", {
+      method: "PUT",
+      body: JSON.stringify({
+        player_id: Number(playerId),
+        event_type: eventType,
+        event_id: Number(eventId),
+        status,
+      }),
+    }),
   createTraining: (training) =>
     request("/api/trainings", {
       method: "POST",

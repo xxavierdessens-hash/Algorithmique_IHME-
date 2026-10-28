@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { api } from "./api/client.js";
+import TrainingDetailModal from "./components/TrainingDetailModal.jsx";
 import CalendarPage from "./pages/CalendarPage.jsx";
 import GlobalCalendarPage from "./pages/GlobalCalendarPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -35,6 +36,15 @@ function AppContent() {
   const [matches, setMatches] = useState([]);
   const [trainings, setTrainings] = useState([]);
   const [attendance, setAttendance] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [profile, setProfile] = useState(
+    () => window.localStorage.getItem("statsvolley-profile") || "Coach",
+  );
+  const [playerId, setPlayerId] = useState(
+    () => window.localStorage.getItem("statsvolley-player-id") || "",
+  );
+  const [selectedTraining, setSelectedTraining] = useState(null);
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [attendanceError, setAttendanceError] = useState("");
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -47,6 +57,20 @@ function AppContent() {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (profile !== "Coach" && location.pathname === "/live") {
+      navigate("/", { replace: true });
+    }
+  }, [location.pathname, navigate, profile]);
+
+  useEffect(() => {
+    window.localStorage.setItem("statsvolley-profile", profile);
+  }, [profile]);
+
+  useEffect(() => {
+    window.localStorage.setItem("statsvolley-player-id", playerId);
+  }, [playerId]);
+
+  useEffect(() => {
     let active = true;
     Promise.all([
       api.getMatches()
@@ -57,6 +81,9 @@ function AppContent() {
         .catch((requestError) => {
           if (active) setTrainingLoadError(requestError.message);
         }),
+      api.getPlayers()
+        .then((result) => { if (active) setPlayers(result); })
+        .catch((requestError) => { if (active) setError(requestError.message); }),
     ])
       .finally(() => {
         if (active) setLoading(false);
@@ -65,6 +92,16 @@ function AppContent() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      profile === "Joueur" &&
+      players.length > 0 &&
+      !players.some((player) => String(player.id) === String(playerId))
+    ) {
+      setPlayerId(String(players.find((player) => player.role === "Joueur")?.id || ""));
+    }
+  }, [playerId, players, profile]);
 
   const attendanceEventKey = [
     ...matches.map((match) => `match:${match.id}`),
@@ -93,6 +130,9 @@ function AppContent() {
   }, [attendanceEventKey]);
 
   function navigateTo(nextPage) {
+    if (nextPage === "live" && profile !== "Coach") {
+      return;
+    }
     const item = NAV_ITEMS.find((navItem) => navItem.id === nextPage);
     const path = item?.path ?? (nextPage === "live" ? "/live" : nextPage === "summary" ? "/recap" : null);
     if (!path) return;
@@ -105,8 +145,13 @@ function AppContent() {
   }
 
   function openMatch(match) {
+    if (profile !== "Coach") return;
     setSelectedMatch(match);
     navigateTo("live");
+  }
+
+  function openTraining(training) {
+    setSelectedTraining(training);
   }
 
   function openSummary(match) {
@@ -120,6 +165,16 @@ function AppContent() {
       [...current, createdMatch].sort(
         (first, second) => new Date(first.match_date) - new Date(second.match_date),
       ),
+    );
+  }
+
+  async function deleteMatch(matchId) {
+    await api.deleteMatch(matchId);
+    setMatches((current) =>
+      current.filter((match) => String(match.id) !== String(matchId)),
+    );
+    setSelectedMatch((current) =>
+      String(current?.id) === String(matchId) ? null : current,
     );
   }
 
@@ -164,6 +219,19 @@ function AppContent() {
         ? updatedTraining
         : training),
     );
+  }
+
+  async function changeAttendance(eventType, eventId, status, selectedPlayerId) {
+    setAttendanceSaving(true);
+    setAttendanceError("");
+    try {
+      await api.setAttendance(selectedPlayerId, eventType, eventId, status);
+      setAttendance(await api.getAttendance());
+    } catch (requestError) {
+      setAttendanceError(requestError.message);
+    } finally {
+      setAttendanceSaving(false);
+    }
   }
 
   const activeNavigationPage = page === "live" || page === "summary" ? "matches" : page;
@@ -213,7 +281,37 @@ function AppContent() {
       <main className="main-content">
         <header className="topbar">
           <div><span className="topbar__crumb">STATS VOLLEY</span><span className="topbar__divider">/</span> SAISON 2026—2027</div>
-          <span className="topbar__status"><i /> Système opérationnel</span>
+          <div className="topbar__profile">
+            <label>
+              Profil
+              <select
+                aria-label="Profil de démonstration"
+                onChange={(event) => setProfile(event.target.value)}
+                value={profile}
+              >
+                <option value="Coach">Coach / Entraîneur</option>
+                <option value="Joueur">Joueur</option>
+                <option value="Invité">Invité</option>
+              </select>
+            </label>
+            {profile === "Joueur" && (
+              <label>
+                Joueur
+                <select
+                  aria-label="Joueur connecté"
+                  onChange={(event) => setPlayerId(event.target.value)}
+                  value={playerId}
+                >
+                  {players.filter((player) => player.role === "Joueur").map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.number ? `#${player.number} ` : ""}{player.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <span className="topbar__status"><i /> Profil actif</span>
+          </div>
         </header>
         <div className="page-content">
           {page === "home" && (
@@ -222,9 +320,13 @@ function AppContent() {
               attendance={attendance}
               attendanceError={attendanceError}
               attendanceLoading={attendanceLoading}
+              attendanceSaving={attendanceSaving}
               matches={matches}
+              onAttendanceChange={changeAttendance}
               onNavigate={navigateTo}
-              onOpenMatch={openMatch}
+              onOpenTraining={openTraining}
+              playerId={playerId}
+              profile={profile}
               trainingError={trainingLoadError}
               trainings={trainings}
             />
@@ -236,7 +338,13 @@ function AppContent() {
               matches={matches}
               onOpenMatch={openMatch}
               onOpenSummary={openSummary}
-              onOpenTrainings={() => navigateTo("trainings")}
+              onOpenTraining={openTraining}
+              attendance={attendance}
+              attendanceError={attendanceError}
+              onAttendanceChange={changeAttendance}
+              attendanceSaving={attendanceSaving}
+              profile={profile}
+              playerId={playerId}
               trainings={trainings}
             />
           )}
@@ -248,12 +356,25 @@ function AppContent() {
               onOpenMatch={openMatch}
               onOpenSummary={openSummary}
               onCreateMatch={addMatch}
+              onDeleteMatch={deleteMatch}
               onUpdateMatch={updateMatch}
+              attendance={attendance}
+              attendanceError={attendanceError}
+              onAttendanceChange={changeAttendance}
+              attendanceSaving={attendanceSaving}
+              playerId={playerId}
+              profile={profile}
             />
           )}
           {page === "live" && <LiveMatchPage match={selectedMatch} onUpdateMatch={updateMatch} />}
-          {page === "summary" && <MatchSummaryPage matches={matches} initialMatch={selectedMatch} />}
-          {page === "players" && <PlayersPage />}
+          {page === "summary" && (
+            <MatchSummaryPage
+              canManage={profile === "Coach"}
+              matches={matches}
+              initialMatch={selectedMatch}
+            />
+          )}
+          {page === "players" && <PlayersPage canManage={profile === "Coach"} />}
           {page === "progress" && <PlayerProgressPage />}
           {page === "trainings" && (
             <TrainingsPage
@@ -264,7 +385,15 @@ function AppContent() {
               onOpenCalendar={() => navigateTo("calendar")}
               onTrainingDrillsUpdated={updateTrainingDrills}
               onUpdateTraining={updateTraining}
+              onOpenTraining={openTraining}
+              attendance={attendance}
+              attendanceError={attendanceError}
+              onAttendanceChange={changeAttendance}
+              attendanceSaving={attendanceSaving}
+              playerId={playerId}
+              profile={profile}
               trainings={trainings}
+              canManage={profile === "Coach"}
             />
           )}
           {page !== "home" && (
@@ -272,6 +401,20 @@ function AppContent() {
           )}
         </div>
       </main>
+      {selectedTraining && (
+        <TrainingDetailModal
+          attendance={attendance}
+          attendanceError={attendanceError}
+          onClose={() => setSelectedTraining(null)}
+          onAttendanceChange={changeAttendance}
+          playerId={playerId}
+          profile={profile}
+          attendanceSaving={attendanceSaving}
+          training={trainings.find(
+            (training) => String(training.id) === String(selectedTraining.id),
+          ) || selectedTraining}
+        />
+      )}
     </div>
   );
 }

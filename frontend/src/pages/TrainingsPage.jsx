@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client.js";
+import AttendanceControls from "../components/AttendanceControls.jsx";
 import StatusMessage from "../components/StatusMessage.jsx";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -41,7 +42,24 @@ function monthShortLabel(value) {
     .replace(".", "");
 }
 
-function TrainingCard({ training, onCompose, onEdit, onDelete }) {
+function TrainingCard({
+  training,
+  onCompose,
+  onEdit,
+  onDelete,
+  onOpenDetails,
+  canManage,
+  attendance,
+  attendanceError,
+  onAttendanceChange,
+  attendanceSaving,
+  profile,
+  playerId,
+}) {
+  const startsAt = new Date(
+    `${localDate(training.date)}T${timeValue(training.start_time)}`,
+  );
+  const isUpcoming = startsAt >= new Date();
   return (
     <article className="training-card">
       <div className="training-card__date">
@@ -54,6 +72,11 @@ function TrainingCard({ training, onCompose, onEdit, onDelete }) {
         <p className="training-card__meta">
           {dateFormatter.format(new Date(`${localDate(training.date)}T12:00:00`))} · {timeValue(training.start_time)}–{timeValue(training.end_time)}
         </p>
+        <button
+          className="button button--secondary training-card__details"
+          onClick={() => onOpenDetails(training)}
+          type="button"
+        >Détail de la séance</button>
         {training.notes && <p className="training-card__notes">{training.notes}</p>}
         <div className="training-card__drills">
           {(training.drills || []).length
@@ -65,10 +88,24 @@ function TrainingCard({ training, onCompose, onEdit, onDelete }) {
             : <small>Aucun exercice assemblé</small>}
         </div>
       </div>
+      <AttendanceControls
+        attendance={attendance}
+        error={attendanceError}
+        eventId={training.id}
+        eventType="Training"
+        onChange={onAttendanceChange}
+        playerId={playerId}
+        profile={isUpcoming ? profile : "Invité"}
+        saving={attendanceSaving}
+      />
       <div className="training-card__actions">
-        <button className="button button--primary" onClick={() => onCompose(training)} type="button">Composer</button>
-        <button className="button button--secondary" onClick={() => onEdit(training)} type="button">Modifier</button>
-        <button className="button button--danger" onClick={() => onDelete(training)} type="button">Supprimer</button>
+        {canManage && (
+          <>
+            <button className="button button--primary" onClick={() => onCompose(training)} type="button">Composer</button>
+            <button className="button button--secondary" onClick={() => onEdit(training)} type="button">Modifier</button>
+            <button className="button button--danger" onClick={() => onDelete(training)} type="button">Supprimer</button>
+          </>
+        )}
       </div>
     </article>
   );
@@ -83,6 +120,14 @@ export default function TrainingsPage({
   onUpdateTraining,
   onDeleteTraining,
   onTrainingDrillsUpdated,
+  onOpenTraining,
+  attendance,
+  attendanceError,
+  onAttendanceChange,
+  attendanceSaving,
+  profile,
+  playerId,
+  canManage,
 }) {
   const [tab, setTab] = useState("planning");
   const [drills, setDrills] = useState([]);
@@ -258,11 +303,11 @@ export default function TrainingsPage({
           <p className="eyebrow">Construire, répéter, progresser</p>
           <h2>Entraînements</h2>
         </div>
-        {tab === "planning" ? (
+        {tab === "planning" ? canManage ? (
           <button className="button button--primary" onClick={startCreateTraining} type="button">
             Nouvelle séance
           </button>
-        ) : (
+        ) : null : canManage ? (
           <button
             className="button button--primary"
             onClick={() => { setCustomDrillError(""); setDrillFormOpen((open) => !open); }}
@@ -270,7 +315,7 @@ export default function TrainingsPage({
           >
             {drillFormOpen ? "Fermer le formulaire" : "Créer un exercice"}
           </button>
-        )}
+        ) : null}
       </div>
 
       <div className="training-tabs" role="tablist" aria-label="Entraînements">
@@ -303,10 +348,17 @@ export default function TrainingsPage({
               <div className="training-list">
                 {orderedTrainings.map((training) => (
                   <TrainingCard
+                    attendance={attendance}
+                    attendanceSaving={attendanceSaving}
+                    canManage={canManage}
                     key={training.id}
                     onCompose={composeTraining}
                     onDelete={removeTraining}
                     onEdit={startEditTraining}
+                    onOpenDetails={onOpenTraining}
+                    onAttendanceChange={onAttendanceChange}
+                    playerId={playerId}
+                    profile={profile}
                     training={training}
                   />
                 ))}
@@ -316,7 +368,7 @@ export default function TrainingsPage({
                 <span className="empty-state__icon" aria-hidden="true">◷</span>
                 <h3>Le prochain entraînement commence ici</h3>
                 <p>Planifiez une séance, puis composez-la avec les exercices de la bibliothèque.</p>
-                <button className="button button--primary" onClick={startCreateTraining} type="button">Créer une séance</button>
+                {canManage && <button className="button button--primary" onClick={startCreateTraining} type="button">Créer une séance</button>}
               </div>
             )}
           </StatusMessage>
@@ -324,7 +376,7 @@ export default function TrainingsPage({
       ) : (
         <div className="training-library-layout">
           <section className="training-panel">
-            {drillFormOpen && (
+            {canManage && drillFormOpen && (
               <form className="match-form drill-form" onSubmit={submitDrill}>
                 <div className="training-panel__heading">
                   <div><p className="eyebrow">Exercice personnalisé</p><h3>Ajouter à la bibliothèque</h3></div>
@@ -359,7 +411,7 @@ export default function TrainingsPage({
                   const selected = Object.hasOwn(assignmentDraft, drill.id);
                   return (
                     <article className={`drill-card${selected ? " drill-card--selected" : ""}`} key={drill.id}>
-                      {selectedTraining && (
+                      {canManage && selectedTraining && (
                         <input
                           aria-label={`Ajouter ${drill.title} à la séance`}
                           checked={selected}
@@ -449,9 +501,9 @@ export default function TrainingsPage({
                   ) : null;
                 })}
                 {assignmentError && <p className="status-message status-message--error" role="alert">{assignmentError}</p>}
-                <button className="button button--primary assembly-save" disabled={assignmentSaving} onClick={saveAssembly} type="button">
+                {canManage && <button className="button button--primary assembly-save" disabled={assignmentSaving} onClick={saveAssembly} type="button">
                   {assignmentSaving ? "Enregistrement…" : "Enregistrer la séance"}
-                </button>
+                </button>}
               </>
             )}
           </aside>
