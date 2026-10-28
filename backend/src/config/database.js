@@ -41,8 +41,37 @@ export async function initializeDatabase() {
   const schema = await readFile(fileURLToPath(schemaPath), "utf8");
   const seed = await readFile(fileURLToPath(seedPath), "utf8");
 
-  await pool.query(schema);
-  await pool.query(seed);
+  for (const script of [
+    { type: "migration", version: "001_initial_schema", contents: schema },
+    { type: "seed", version: "001_demo_seed", contents: seed },
+  ]) {
+    await withTransaction(async (client) => {
+      await client.query("SELECT pg_advisory_xact_lock($1)", [827361904]);
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS app_initialization_scripts (
+          script_type TEXT NOT NULL CHECK (script_type IN ('migration', 'seed')),
+          version TEXT NOT NULL,
+          applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (script_type, version)
+        )
+      `);
+
+      const applied = await client.query(
+        `SELECT 1
+         FROM app_initialization_scripts
+         WHERE script_type = $1 AND version = $2`,
+        [script.type, script.version],
+      );
+      if (applied.rowCount > 0) return;
+
+      await client.query(script.contents);
+      await client.query(
+        `INSERT INTO app_initialization_scripts (script_type, version)
+         VALUES ($1, $2)`,
+        [script.type, script.version],
+      );
+    });
+  }
 }
 
 export function closePool() {

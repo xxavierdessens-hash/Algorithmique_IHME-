@@ -21,33 +21,8 @@ WHERE NOT EXISTS (
   SELECT 1 FROM players existing
   WHERE (seed.number IS NOT NULL AND existing.number = seed.number)
      OR (existing.first_name = seed.first_name AND existing.last_name = seed.last_name)
+     OR LOWER(existing.email) = LOWER(seed.email)
 );
-
-UPDATE players SET email = 'x.dessens@gmail.com', role = 'Joueur', position = 'R4'
-WHERE LOWER(first_name) = 'xavier' AND LOWER(last_name) = 'dessens';
-UPDATE players SET email = 'xxavier.dessens@gmail.com', role = 'Coach'
-WHERE role = 'Coach'
-  AND first_name = 'Marc'
-  AND last_name = 'Dubois';
-UPDATE players SET email = seed.email
-FROM (VALUES
-  ('Camille', 'Martin', 'camille.martin@example.com'),
-  ('Alexandre', 'Bernard', 'alexandre.bernard@example.com'),
-  ('Lina', 'Petit', 'lina.petit@example.com'),
-  ('Noah', 'Robert', 'noah.robert@example.com'),
-  ('Jade', 'Richard', 'jade.richard@example.com'),
-  ('Maxime', 'Durand', 'maxime.durand@example.com'),
-  ('Inès', 'Moreau', 'ines.moreau@example.com'),
-  ('Thomas', 'Simon', 'thomas.simon@example.com'),
-  ('Léa', 'Michel', 'lea.michel@example.com'),
-  ('Hugo', 'Lefebvre', 'hugo.lefebvre@example.com'),
-  ('Sarah', 'Leroy', 'sarah.leroy@example.com'),
-  ('Adam', 'Roux', 'adam.roux@example.com'),
-  ('Zoé', 'Fontaine', 'zoe.fontaine@example.com')
-) AS seed(first_name, last_name, email)
-WHERE players.first_name = seed.first_name
-  AND players.last_name = seed.last_name
-  AND players.role IN ('Joueur', 'Invité');
 
 INSERT INTO matches (
   opponent, location, match_date, status, score_home, score_away,

@@ -142,7 +142,7 @@ En développement, le frontend utilise `http://localhost:3000` par défaut pour 
 
 ## Données de démonstration
 
-Au démarrage, l'API exécute la migration puis le seed SQL de façon idempotente. Le seed initialise notamment un effectif de démonstration, des matchs terminés et à venir, des statistiques individuelles, des entraînements et leurs présences. Les événements futurs commencent avec le statut **En attente**. Les données métier existantes ne sont pas supprimées par le seed.
+Au premier démarrage, l'API applique la migration de schéma puis le seed de démonstration, chacun une seule fois et dans une transaction. Les scripts appliqués sont consignés dans `app_initialization_scripts` ; les démarrages suivants ne rejouent ni la migration ni le seed. Le seed initialise notamment un effectif de démonstration, des matchs terminés et à venir, des statistiques individuelles, des entraînements et leurs présences. Il ne met pas à jour les comptes joueurs déjà présents ; en cas de numéro, de nom complet ou d'adresse email déjà utilisé, le joueur de démonstration correspondant n'est pas ajouté. Les événements futurs commencent avec le statut **En attente**. Les données métier existantes ne sont pas supprimées par le seed.
 
 Les rôles disponibles sont `Coach`, `Joueur` et `Invité`. Les principaux postes sont `Passeur`, `R4`, `Central`, `Pointu` et `Libéro`.
 
