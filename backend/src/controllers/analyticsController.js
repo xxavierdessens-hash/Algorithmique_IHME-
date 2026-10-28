@@ -8,25 +8,26 @@ const STAT_TYPES = new Set([
   "total_points",
 ]);
 const PERIODS = new Set(["all", "last_3", "last_5"]);
-
-function clamp(value, minimum = 0, maximum = 100) {
-  return Math.min(maximum, Math.max(minimum, value));
-}
+const POSITIONS = new Set(["Passeur", "R4", "Central", "Pointu", "Libéro"]);
 
 function summarize(stats) {
   const attackPoints = Number(stats.attack_points || 0);
   const attackAttempts = Number(stats.attack_attempts || 0);
+  const attackErrors = Number(stats.attack_errors || 0);
   const aces = Number(stats.serve_aces || 0);
   const serveErrors = Number(stats.serve_errors || 0);
   const blocks = Number(stats.block_points || 0);
   return {
     attack_points: attackPoints,
     attack_attempts: attackAttempts,
+    attack_errors: attackErrors,
     serve_aces: aces,
     serve_errors: serveErrors,
     block_points: blocks,
     total_points: attackPoints + aces + blocks,
-    attack_efficiency: attackAttempts ? 100 * attackPoints / attackAttempts : 0,
+    attack_efficiency: attackPoints + attackErrors
+      ? 100 * attackPoints / (attackPoints + attackErrors)
+      : 0,
   };
 }
 
@@ -37,70 +38,22 @@ function metricValue(stats, statType) {
   return stats[statType];
 }
 
-function radarProfile(playerStats, series) {
-  const totals = playerStats.reduce((total, stats) => ({
-    attack_points: total.attack_points + stats.attack_points,
-    attack_attempts: total.attack_attempts + stats.attack_attempts,
-    serve_aces: total.serve_aces + stats.serve_aces,
-    serve_errors: total.serve_errors + stats.serve_errors,
-    block_points: total.block_points + stats.block_points,
-    total_points: total.total_points + stats.total_points,
-  }), {
-    attack_points: 0,
-    attack_attempts: 0,
-    serve_aces: 0,
-    serve_errors: 0,
-    block_points: 0,
-    total_points: 0,
-  });
-  const averagePoints = series.length
-    ? series.reduce((sum, match) => sum + match.regularity_value, 0) / series.length
-    : 0;
-  const deviation = series.length
-    ? Math.sqrt(series.reduce(
-      (sum, match) => sum + (match.regularity_value - averagePoints) ** 2,
-      0,
-    ) / series.length)
-    : 0;
-
-  return [
-    {
-      subject: "Attaque",
-      value: totals.attack_attempts
-        ? clamp(100 * totals.attack_points / totals.attack_attempts)
-        : 0,
-    },
-    {
-      subject: "Service",
-      value: totals.serve_aces + totals.serve_errors
-        ? clamp(100 * totals.serve_aces / (totals.serve_aces + totals.serve_errors))
-        : 0,
-    },
-    { subject: "Bloc", value: clamp(100 * (totals.block_points / Math.max(series.length, 1)) / 3) },
-    { subject: "Volume", value: clamp(100 * (totals.total_points / Math.max(series.length, 1)) / 15) },
-    {
-      subject: "Régularité",
-      value: averagePoints
-        ? clamp(100 - 100 * deviation / averagePoints)
-        : 0,
-    },
-  ];
-}
-
 export async function progression(request, response) {
   const playerFilter = request.query.player_id ?? "all";
   const statType = request.query.stat_type ?? "total_points";
   const period = request.query.period ?? "all";
+  const position = request.query.position || null;
   const playerId = playerFilter === "all" ? null : Number(playerFilter);
 
   if (
     (playerFilter !== "all" &&
       (!Number.isInteger(playerId) || playerId <= 0)) ||
     !STAT_TYPES.has(statType) ||
-    !PERIODS.has(period)
+    !PERIODS.has(period) ||
+    (position !== null && !POSITIONS.has(position))
   ) {
     return response.status(400).json({
-      error: "Filtres invalides. Vérifiez player_id, stat_type et period.",
+      error: "Filtres invalides. Vérifiez player_id, stat_type, period et position.",
     });
   }
 
@@ -119,6 +72,7 @@ export async function progression(request, response) {
             p.id AS player_id,
             COALESCE(s.attack_points, 0)::int AS attack_points,
             COALESCE(s.attack_attempts, 0)::int AS attack_attempts,
+            COALESCE(s.attack_errors, 0)::int AS attack_errors,
             COALESCE(s.serve_aces, 0)::int AS serve_aces,
             COALESCE(s.serve_errors, 0)::int AS serve_errors,
             COALESCE(s.block_points, 0)::int AS block_points
@@ -127,7 +81,9 @@ export async function progression(request, response) {
      LEFT JOIN match_player_stats s
        ON s.match_id = m.id AND s.player_id = p.id
      WHERE m.status = 'Terminé' AND p.active = TRUE AND p.role = 'Joueur'
+       AND ($1::text IS NULL OR p.position = $1)
      ORDER BY m.match_date ASC, p.id ASC`,
+    [position],
   );
 
   const matches = new Map();
@@ -192,11 +148,23 @@ export async function progression(request, response) {
   const totalStats = (playerId === null ? teamStats : selectedStats)
     .reduce((total, item) => ({
       attack_points: total.attack_points + item.attack_points,
-      attack_attempts: total.attack_attempts + item.attack_attempts,
-    }), { attack_points: 0, attack_attempts: 0 });
+      attack_errors: total.attack_errors + item.attack_errors,
+      serve_aces: total.serve_aces + item.serve_aces,
+      serve_errors: total.serve_errors + item.serve_errors,
+      block_points: total.block_points + item.block_points,
+      total_points: total.total_points + item.total_points,
+    }), {
+      attack_points: 0,
+      attack_errors: 0,
+      serve_aces: 0,
+      serve_errors: 0,
+      block_points: 0,
+      total_points: 0,
+    });
+  const matchCount = series.length;
 
   return response.json({
-    filters: { player_id: playerFilter, stat_type: statType, period },
+    filters: { player_id: playerFilter, stat_type: statType, period, position },
     kpis: {
       average_per_match: values.length
         ? values.reduce((sum, value) => sum + value, 0) / values.length
@@ -207,9 +175,14 @@ export async function progression(request, response) {
         match_date: series[recordIndex].match_date,
       },
       cumulative_total: cumulativeTotal(playerId === null ? teamStats : selectedStats),
-      success_rate: totalStats.attack_attempts
-        ? 100 * totalStats.attack_points / totalStats.attack_attempts
+      attack_efficiency: totalStats.attack_points + totalStats.attack_errors
+        ? 100 * totalStats.attack_points /
+          (totalStats.attack_points + totalStats.attack_errors)
         : 0,
+      total_points: totalStats.total_points,
+      aces_per_match: matchCount ? totalStats.serve_aces / matchCount : 0,
+      serve_errors: totalStats.serve_errors,
+      blocks_per_match: matchCount ? totalStats.block_points / matchCount : 0,
     },
     time_series: series.map(({
       players: _players,
@@ -217,6 +190,5 @@ export async function progression(request, response) {
       regularity_value: _regularityValue,
       ...item
     }) => item),
-    radar: radarProfile(playerId === null ? teamStats : selectedStats, series),
   });
 }

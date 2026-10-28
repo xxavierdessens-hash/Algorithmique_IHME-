@@ -131,7 +131,7 @@ export default function MatchSummaryPage({ matches, initialMatch, canManage = fa
     <section className="match-summary">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Après le coup de sifflet</p>
+          <p className="eyebrow summary-overline">Après le coup de sifflet</p>
           <h2>Fiche récap</h2>
         </div>
         <label className="select-label">
@@ -151,26 +151,26 @@ export default function MatchSummaryPage({ matches, initialMatch, canManage = fa
           <>
             <section className="match-report">
               <div className="match-report__heading">
-                <p className="eyebrow">Bilan de la rencontre</p>
-                <h2>Bilan & MVP du match</h2>
+                <p className="eyebrow summary-overline">Bilan de la rencontre</p>
+                <h2 className="summary-contrast-title">Bilan & MVP du match</h2>
                 <p>StatsVolley <span>vs</span> {selectedMatch?.opponent || "Adversaire"}</p>
               </div>
               <div className="match-report__metrics">
                 <article>
-                  <span>Score</span>
-                  <strong>{selectedMatch
+                  <span className="summary-metric-label">Score</span>
+                  <strong className="summary-metric-value">{selectedMatch
                     ? `${selectedMatch.score_home} – ${selectedMatch.score_away}`
                     : "—"}</strong>
                   <small>sets</small>
                 </article>
                 <article>
-                  <span>MVP</span>
-                  <strong>{mvp && Number(mvp.points) > 0 ? mvp.name : "—"}</strong>
+                  <span className="summary-metric-label">MVP</span>
+                  <strong className="summary-metric-value">{mvp && Number(mvp.points) > 0 ? mvp.name : "—"}</strong>
                   <small>{mvp && Number(mvp.points) > 0 ? `${mvp.points} points` : "Aucun point enregistré"}</small>
                 </article>
                 <article>
-                  <span>Attaque équipe</span>
-                  <strong>{teamAttackRatio}%</strong>
+                  <span className="summary-metric-label">Attaque équipe</span>
+                  <strong className="summary-metric-value">{teamAttackRatio}%</strong>
                   <small>{attackPoints} / {attackAttempts} attaques gagnantes</small>
                 </article>
               </div>
@@ -178,8 +178,8 @@ export default function MatchSummaryPage({ matches, initialMatch, canManage = fa
 
             <div className="summary-table-toolbar">
               <div>
-                <p className="eyebrow">Performance individuelle</p>
-                <h3>Statistiques des joueurs</h3>
+                <p className="eyebrow summary-overline">Performance individuelle</p>
+                <h3 className="summary-contrast-title">Statistiques des joueurs</h3>
               </div>
               <div className="view-toggle" aria-label="Mode d'affichage">
                 <button
@@ -200,11 +200,11 @@ export default function MatchSummaryPage({ matches, initialMatch, canManage = fa
               <table className="summary-table">
                 <thead>
                   <tr>
-                    <th scope="col">Joueur</th>
+                    <th className="summary-table__heading" scope="col">Joueur</th>
                     {SORTABLE_COLUMNS.map((column) => (
                       <th aria-sort={sortKey === column.key
                         ? sortDirection === "asc" ? "ascending" : "descending"
-                        : "none"} key={column.key} scope="col">
+                        : "none"} className="summary-table__heading" key={column.key} scope="col">
                         <button onClick={() => sortBy(column.key)} type="button">
                           {column.label}
                           {sortKey === column.key && (

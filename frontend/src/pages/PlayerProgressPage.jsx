@@ -4,11 +4,6 @@ import {
   Legend,
   Line,
   LineChart,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,6 +18,15 @@ const STAT_OPTIONS = [
   { value: "aces", label: "Aces" },
   { value: "blocks", label: "Blocs" },
 ];
+const POSITION_OPTIONS = [
+  { value: "all", label: "Tous" },
+  { value: "Passeur", label: "Passeurs" },
+  { value: "R4", label: "R4 / Attaquants" },
+  { value: "Central", label: "Centraux" },
+  { value: "Pointu", label: "Pointus" },
+  { value: "Libéro", label: "Libéros" },
+];
+const CHART_COLORS = ["#2457d6", "#d05b38", "#15836d", "#8b5cf6", "#c08a14", "#dc3d72"];
 const PERIOD_OPTIONS = [
   { value: "all", label: "Tout le semestre" },
   { value: "last_5", label: "5 derniers matchs" },
@@ -49,13 +53,21 @@ function formatValue(value, statType) {
   return statType === "attack_efficiency" ? `${formatted}%` : formatted;
 }
 
+function formatAverage(value) {
+  return Number(value || 0).toLocaleString("fr-FR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
 export default function PlayerProgressPage() {
   const [players, setPlayers] = useState([]);
-  const [filters, setFilters] = useState({
-    player_id: "all",
-    stat_type: "attack_efficiency",
-    period: "all",
-  });
+  const [position, setPosition] = useState("all");
+  const [statType, setStatType] = useState("attack_efficiency");
+  const [period, setPeriod] = useState("all");
+  const [comparedIds, setComparedIds] = useState([]);
+  const [playerToAdd, setPlayerToAdd] = useState("");
+  const [includeAverage, setIncludeAverage] = useState(true);
   const [data, setData] = useState(null);
   const [seasonRows, setSeasonRows] = useState([]);
   const [seasonLoading, setSeasonLoading] = useState(true);
@@ -103,9 +115,51 @@ export default function PlayerProgressPage() {
     let active = true;
     setLoading(true);
     setError("");
-    api.getAnalyticsProgression(filters)
-      .then((result) => {
-        if (active) setData(result);
+    const positionFilter = position === "all" ? null : position;
+    const playerRequests = comparedIds.map((id) => {
+      const player = players.find((item) => String(item.id) === String(id));
+      return api.getAnalyticsProgression({
+        player_id: id,
+        stat_type: statType,
+        period,
+        position: positionFilter,
+      }).then((result) => ({ id, name: player?.name || "Joueur", result }));
+    });
+    const averageRequest = includeAverage
+      ? api.getAnalyticsProgression({
+        player_id: "all",
+        stat_type: statType,
+        period,
+        position: positionFilter,
+      }).then((result) => ({ id: "average", name: "Moyenne", result }))
+      : Promise.resolve(null);
+    Promise.all([Promise.all(playerRequests), averageRequest])
+      .then(([playerResults, averageResult]) => {
+        if (!active) return;
+        const results = [...playerResults, ...(averageResult ? [averageResult] : [])];
+        const pointsByMatch = new Map();
+        for (const series of results) {
+          for (const item of series.result.time_series) {
+            const key = String(item.match_id);
+            if (!pointsByMatch.has(key)) {
+              pointsByMatch.set(key, {
+                match_id: item.match_id,
+                match_date: item.match_date,
+                match_label: dateFormatter.format(new Date(item.match_date)),
+                opponent: item.opponent,
+              });
+            }
+            const dataKey = series.id === "average" ? "average" : `player_${series.id}`;
+            pointsByMatch.get(key)[dataKey] = Number(item.value);
+          }
+        }
+        setData({
+          chartData: [...pointsByMatch.values()].sort(
+            (first, second) => new Date(first.match_date) - new Date(second.match_date),
+          ),
+          kpis: (playerResults[0] || averageResult)?.result.kpis ?? null,
+          kpiLabel: playerResults[0]?.name || averageResult?.name || "",
+        });
       })
       .catch((requestError) => {
         if (active) setError(requestError.message);
@@ -116,21 +170,15 @@ export default function PlayerProgressPage() {
     return () => {
       active = false;
     };
-  }, [filters]);
+  }, [comparedIds, includeAverage, period, position, players, statType]);
 
-  const selectedPlayer = players.find(
-    (player) => String(player.id) === filters.player_id,
+  const availablePlayers = players.filter(
+    (player) => position === "all" || player.position === position,
   );
-  const label = filters.player_id === "all"
-    ? "Moyenne de l'équipe"
-    : selectedPlayer?.name || "Joueur";
-  const chartData = (data?.time_series || []).map((item) => ({
-    ...item,
-    match_label: dateFormatter.format(new Date(item.match_date)),
-  }));
+  const chartData = data?.chartData ?? [];
   const kpis = data?.kpis;
   const statLabel = STAT_OPTIONS.find((option) =>
-    option.value === filters.stat_type)?.label || "Statistiques";
+    option.value === statType)?.label || "Statistiques";
   const sortedSeasonRows = [...seasonRows].sort(
     (first, second) => Number(second.points) - Number(first.points),
   );
@@ -148,6 +196,24 @@ export default function PlayerProgressPage() {
       ? `${totalLabel} (${ratio}/set — ${formattedSets} sets)`
       : `${ratio}/set (${totalLabel} — ${formattedSets} sets)`;
   };
+  const averageLabel = position === "all"
+    ? "Moyenne équipe"
+    : `Moyenne · ${POSITION_OPTIONS.find((item) => item.value === position)?.label}`;
+
+  function addPlayerToComparison() {
+    if (!playerToAdd || comparedIds.includes(playerToAdd)) return;
+    setComparedIds((current) => [...current, playerToAdd]);
+    setPlayerToAdd("");
+  }
+
+  function changePosition(nextPosition) {
+    setPosition(nextPosition);
+    if (nextPosition !== "all") {
+      setComparedIds((current) => current.filter((id) =>
+        players.find((player) => String(player.id) === String(id))?.position === nextPosition,
+      ));
+    }
+  }
 
   return (
     <section>
@@ -159,25 +225,50 @@ export default function PlayerProgressPage() {
         <span className="count-pill">Saison en cours</span>
       </div>
 
+      <div className="position-filter" role="group" aria-label="Filtrer par poste">
+        {POSITION_OPTIONS.map((option) => (
+          <button
+            aria-pressed={position === option.value}
+            className={position === option.value ? "position-filter__active" : ""}
+            key={option.value}
+            onClick={() => changePosition(option.value)}
+            type="button"
+          >{option.label}</button>
+        ))}
+      </div>
       <div className="progress-filters">
         <label className="select-label">
-          Joueur
+          Ajouter un joueur à la comparaison
           <select
-            disabled={playersLoading}
-            onChange={(event) => setFilters({ ...filters, player_id: event.target.value })}
-            value={filters.player_id}
+            disabled={playersLoading || comparedIds.length >= CHART_COLORS.length}
+            onChange={(event) => setPlayerToAdd(event.target.value)}
+            value={playerToAdd}
           >
-            <option value="all">Toute l'équipe (Moyenne)</option>
-            {players.map((player) => (
-              <option key={player.id} value={player.id}>{player.name}</option>
+            <option value="">Choisir un joueur</option>
+            {availablePlayers.filter((player) => !comparedIds.includes(String(player.id))).map((player) => (
+              <option key={player.id} value={String(player.id)}>{player.name}</option>
             ))}
           </select>
+        </label>
+        <button
+          className="button button--secondary"
+          disabled={!playerToAdd}
+          onClick={addPlayerToComparison}
+          type="button"
+        >Ajouter</button>
+        <label className="progress-average-toggle">
+          <input
+            checked={includeAverage}
+            onChange={(event) => setIncludeAverage(event.target.checked)}
+            type="checkbox"
+          />
+          {averageLabel}
         </label>
         <label className="select-label">
           Statistique
           <select
-            onChange={(event) => setFilters({ ...filters, stat_type: event.target.value })}
-            value={filters.stat_type}
+            onChange={(event) => setStatType(event.target.value)}
+            value={statType}
           >
             {STAT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -187,8 +278,8 @@ export default function PlayerProgressPage() {
         <label className="select-label">
           Période
           <select
-            onChange={(event) => setFilters({ ...filters, period: event.target.value })}
-            value={filters.period}
+            onChange={(event) => setPeriod(event.target.value)}
+            value={period}
           >
             {PERIOD_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -199,75 +290,92 @@ export default function PlayerProgressPage() {
 
       <StatusMessage loading={loading} error={error}>
         {!chartData.length ? (
-          <p className="status-message">Les statistiques apparaîtront ici dès qu'un match sera terminé.</p>
+          <p className="status-message">Les statistiques apparaîtront ici dès qu'un match sera terminé, ou sélectionnez une moyenne à comparer.</p>
         ) : (
           <>
+            <div className="progress-comparison-list" aria-label="Séries comparées">
+              {comparedIds.map((id) => {
+                const player = players.find((item) => String(item.id) === String(id));
+                return (
+                  <span className="progress-comparison-chip" key={id}>
+                    {player?.name || "Joueur"}
+                    <button
+                      aria-label={`Retirer ${player?.name || "le joueur"} de la comparaison`}
+                      onClick={() => setComparedIds((current) => current.filter((item) => item !== id))}
+                      type="button"
+                    >×</button>
+                  </span>
+                );
+              })}
+            </div>
             <div className="progress-kpis">
               <article className="progress-kpi">
-                <span>Moyenne / match</span>
-                <strong>{formatValue(kpis.average_per_match, filters.stat_type)}</strong>
-                <small>{statLabel}</small>
-              </article>
-              <article className="progress-kpi">
-                <span>Record max</span>
-                <strong>{formatValue(kpis.record_max.value, filters.stat_type)}</strong>
-                <small>vs {kpis.record_max.opponent}</small>
-              </article>
-              <article className="progress-kpi">
-                <span>Total cumulé</span>
-                <strong>{formatValue(kpis.cumulative_total, "total_points")}</strong>
-                <small>{filters.stat_type === "attack_efficiency" ? "points d'attaque" : statLabel}</small>
-              </article>
-              <article className="progress-kpi">
                 <span>Efficacité attaque</span>
-                <strong>{formatValue(kpis.success_rate, "attack_efficiency")}</strong>
-                <small>sur la période sélectionnée</small>
+                <strong>{formatValue(kpis?.attack_efficiency, "attack_efficiency")}</strong>
+                <small>Attaques gagnantes / (gagnantes + fautes) · {data?.kpiLabel}</small>
+              </article>
+              <article className="progress-kpi">
+                <span>Total points marquants</span>
+                <strong>{formatValue(kpis?.total_points, "total_points")}</strong>
+                <small>Attaques + aces + blocs · {data?.kpiLabel}</small>
+              </article>
+              <article className="progress-kpi">
+                <span>Aces par match</span>
+                <strong>{formatAverage(kpis?.aces_per_match)}</strong>
+                <small>{formatValue(kpis?.serve_errors, "total_points")} fautes de service · période</small>
+              </article>
+              <article className="progress-kpi">
+                <span>Blocs gagnants par match</span>
+                <strong>{formatAverage(kpis?.blocks_per_match)}</strong>
+                <small>Sur la période sélectionnée</small>
               </article>
             </div>
             <div className="progress-charts">
               <article className="chart-card chart-card--wide">
                 <div className="chart-card__heading">
-                  <div><p className="eyebrow">Évolution temporelle</p><h3>{statLabel} · {label}</h3></div>
+                  <div><p className="eyebrow">Évolution temporelle</p><h3>{statLabel}</h3></div>
                 </div>
                 <div className="chart-area">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
                       <CartesianGrid stroke="#edf0eb" strokeDasharray="3 3" />
-                      <XAxis dataKey="match_label" tick={{ fill: "#829089", fontSize: 11 }} />
+                      <XAxis dataKey="match_label" tick={{ fill: "#596579", fontSize: 11 }} />
                       <YAxis
-                        domain={filters.stat_type === "attack_efficiency" ? [0, 100] : ["auto", "auto"]}
-                        tick={{ fill: "#829089", fontSize: 11 }}
-                        tickFormatter={(value) => filters.stat_type === "attack_efficiency" ? `${value}%` : value}
+                        domain={statType === "attack_efficiency" ? [0, 100] : ["auto", "auto"]}
+                        tick={{ fill: "#596579", fontSize: 11 }}
+                        tickFormatter={(value) => statType === "attack_efficiency" ? `${value}%` : value}
                       />
                       <Tooltip
-                        formatter={(value, name) => [
-                          formatValue(value, filters.stat_type),
-                          name === "team_average" ? "Moyenne équipe" : label,
-                        ]}
+                        formatter={(value, name) => [formatValue(value, statType), name]}
                         labelFormatter={(_label, items) => items[0]?.payload?.opponent || ""}
                       />
-                      <Legend formatter={(value) => value === "team_average" ? "Moyenne équipe" : label} />
-                      {filters.player_id !== "all" && (
-                        <Line dataKey="team_average" name="team_average" stroke="#aeb8b0" strokeDasharray="5 5" dot={false} strokeWidth={2} />
+                      <Legend />
+                      {comparedIds.map((id, index) => {
+                        const player = players.find((item) => String(item.id) === String(id));
+                        return (
+                          <Line
+                            activeDot={{ r: 6 }}
+                            dataKey={`player_${id}`}
+                            dot={{ r: 3 }}
+                            key={id}
+                            name={player?.name || "Joueur"}
+                            stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                            strokeWidth={2.5}
+                          />
+                        );
+                      })}
+                      {includeAverage && (
+                        <Line
+                          activeDot={{ r: 5 }}
+                          dataKey="average"
+                          dot={false}
+                          name={averageLabel}
+                          stroke="#64748b"
+                          strokeDasharray="6 4"
+                          strokeWidth={2.5}
+                        />
                       )}
-                      <Line dataKey="value" name={label} stroke="#1c5a43" activeDot={{ r: 6 }} dot={{ r: 3 }} strokeWidth={3} />
                     </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </article>
-              <article className="chart-card">
-                <div className="chart-card__heading">
-                  <div><p className="eyebrow">Profil multicritères</p><h3>{label}</h3></div>
-                </div>
-                <div className="chart-area chart-area--radar">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={data.radar} outerRadius="72%">
-                      <PolarGrid stroke="#e4eae3" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: "#718078", fontSize: 11 }} />
-                      <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar dataKey="value" name={label} stroke="#1c5a43" fill="#1c5a43" fillOpacity={0.22} />
-                      <Tooltip formatter={(value) => [`${Math.round(value)} / 100`, "Profil"]} />
-                    </RadarChart>
                   </ResponsiveContainer>
                 </div>
               </article>

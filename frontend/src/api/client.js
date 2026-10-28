@@ -124,7 +124,11 @@ export const api = {
     request(`/api/statistics/matches/${matchId}/undo`, { method: "POST" }),
   getProgression: () => request("/api/statistics/progression"),
   getAnalyticsProgression: (filters) => {
-    const parameters = new URLSearchParams(filters);
+    const parameters = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(filters).filter(([, value]) => value !== null && value !== undefined),
+      ),
+    );
     return request(`/api/analytics/progression?${parameters.toString()}`);
   },
   recordAction: (matchId, playerId, action, delta) =>

@@ -1371,3 +1371,104 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .topbar__change-profile { padding: 5px 7px; font-size: 9px; }
   .welcome-auth { padding: 24px 20px; border-radius: 22px; }
 }
+
+.match-report { color: #18181b; }
+.match-report__heading .summary-overline,
+.summary-overline { color: #52525b; font-weight: 600; }
+.match-report__heading h2,
+.summary-contrast-title { color: #18181b; font-weight: 700; }
+.match-report__heading > p:last-child { color: #52525b; }
+.match-report__heading > p:last-child span { color: #71717a; }
+.match-report__metrics article {
+  border-color: #e4e4e7;
+  background: #fff;
+}
+.match-report__metrics article > .summary-metric-label {
+  color: #52525b;
+  font-weight: 600;
+}
+.match-report__metrics .summary-metric-value {
+  color: #18181b;
+  font-weight: 700;
+}
+.match-report__metrics small { color: #52525b; }
+.summary-table thead .summary-table__heading {
+  color: #52525b;
+  font-weight: 600;
+}
+.summary-table thead .summary-table__heading button { color: #52525b; font-weight: 600; }
+.summary-table__value,
+.summary-table tbody td { color: #18181b; font-weight: 600; }
+.summary-table__subvalue,
+.summary-table__efficiency { color: #52525b; }
+
+.progress-charts { grid-template-columns: minmax(0, 1fr); }
+.position-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.position-filter button {
+  padding: 8px 11px;
+  border: 1px solid #dfe4ec;
+  border-radius: 999px;
+  color: #475569;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.position-filter button:hover { border-color: #a5b4fc; color: #1e3a8a; }
+.position-filter button.position-filter__active {
+  border-color: #263d75;
+  color: #fff;
+  background: #263d75;
+}
+.progress-filters { align-items: end; }
+.progress-filters > .button { min-height: 36px; }
+.progress-average-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.progress-average-toggle input { accent-color: #263d75; }
+.progress-comparison-list { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.progress-comparison-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px 5px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #334155;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.progress-comparison-chip button {
+  width: 19px;
+  height: 19px;
+  border: 0;
+  border-radius: 50%;
+  color: #475569;
+  background: #eef2f7;
+  font-size: 15px;
+  line-height: 1;
+}
+.progress-kpi { border-radius: 16px; }
+.progress-kpi > span { color: #475569; font-weight: 600; }
+.progress-kpi strong { color: #18181b; font-weight: 700; }
+.progress-kpi small { color: #52525b; }
+
+@media (max-width: 620px) {
+  .progress-filters { align-items: stretch; }
+  .progress-average-toggle { white-space: normal; }
+  .position-filter { gap: 6px; }
+  .position-filter button { padding: 7px 9px; }
+}
