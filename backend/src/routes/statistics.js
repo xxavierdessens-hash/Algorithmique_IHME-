@@ -6,12 +6,13 @@ import {
   updatePlayerAction,
   updatePlayerSets,
 } from "../controllers/statisticsController.js";
+import { requireAuth, requireCoach } from "../middleware/auth.js";
 
 const router = Router();
 router.get("/progression", seasonProgression);
 router.get("/matches/:matchId", matchStatistics);
-router.post("/matches/:matchId/players/:playerId", updatePlayerAction);
-router.put("/matches/:matchId/players/:playerId/sets", updatePlayerSets);
-router.post("/matches/:matchId/undo", undoPlayerAction);
+router.post("/matches/:matchId/players/:playerId", requireAuth, requireCoach, updatePlayerAction);
+router.put("/matches/:matchId/players/:playerId/sets", requireAuth, requireCoach, updatePlayerSets);
+router.post("/matches/:matchId/undo", requireAuth, requireCoach, undoPlayerAction);
 
 export default router;

@@ -13,17 +13,16 @@ import PlayersPage from "./pages/PlayersPage.jsx";
 import TrainingsPage from "./pages/TrainingsPage.jsx";
 
 const NAV_ITEMS = [
-  { id: "home", label: "Accueil", number: "01", path: "/", icon: "⌂" },
-  { id: "calendar", label: "Calendrier", number: "02", path: "/calendrier", icon: "◷" },
-  { id: "matches", label: "Matchs", number: "03", path: "/matchs", icon: "◎" },
-  { id: "trainings", label: "Entraînements", number: "04", path: "/entrainements", icon: "↗" },
-  { id: "progress", label: "Progression", number: "05", path: "/progression", icon: "⌁" },
-  { id: "players", label: "Effectif", number: "06", path: "/effectif", icon: "◉" },
+  { id: "matches", label: "Matchs", path: "/matchs" },
+  { id: "trainings", label: "Entraînements", path: "/entrainements" },
+  { id: "progress", label: "Progression", path: "/progression" },
+  { id: "players", label: "Équipe", path: "/effectif" },
 ];
 
 function pageFromPath(pathname) {
   if (pathname === "/live") return "live";
   if (pathname === "/recap") return "summary";
+  if (pathname === "/calendrier") return "calendar";
   return NAV_ITEMS.find((item) => item.path === pathname)?.id || "home";
 }
 
@@ -35,7 +34,11 @@ function readProfileSession() {
       ["Coach", "Joueur", "Invité"].includes(stored.role) &&
       typeof stored.name === "string" &&
       typeof stored.email === "string" &&
-      (stored.role === "Invité" || (stored.id !== null && stored.id !== undefined))
+      (stored.role === "Invité" || (
+        stored.id !== null &&
+        stored.id !== undefined &&
+        typeof stored.accessToken === "string"
+      ))
     ) {
       return stored;
     }
@@ -49,16 +52,15 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const [page, setPage] = useState(() => pageFromPath(location.pathname));
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    () => window.localStorage.getItem("statsvolley-sidebar-collapsed") === "true",
-  );
   const [matches, setMatches] = useState([]);
   const [trainings, setTrainings] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [players, setPlayers] = useState([]);
   const [profileSession, setProfileSession] = useState(readProfileSession);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState("login");
   const profile = profileSession?.role ?? null;
-  const playerId = profile === "Joueur" ? profileSession.id : "";
+  const playerId = profile === "Joueur" ? profileSession.playerId : "";
   const [selectedTraining, setSelectedTraining] = useState(null);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -137,10 +139,17 @@ function AppContent() {
 
   function navigateTo(nextPage) {
     if (nextPage === "live" && profile !== "Coach") {
+      setAuthInitialMode("login");
+      setAuthModalOpen(true);
       return;
     }
     const item = NAV_ITEMS.find((navItem) => navItem.id === nextPage);
-    const path = item?.path ?? (nextPage === "live" ? "/live" : nextPage === "summary" ? "/recap" : null);
+    const path = item?.path ?? (
+      nextPage === "home" ? "/" :
+        nextPage === "calendar" ? "/calendrier" :
+          nextPage === "live" ? "/live" :
+            nextPage === "summary" ? "/recap" : null
+    );
     if (!path) return;
     if (nextPage === "live" && !selectedMatch) {
       const nextMatch = matches.find((match) => match.status !== "Terminé");
@@ -151,7 +160,11 @@ function AppContent() {
   }
 
   function openMatch(match) {
-    if (profile !== "Coach") return;
+    if (profile !== "Coach") {
+      setAuthInitialMode("login");
+      setAuthModalOpen(true);
+      return;
+    }
     setSelectedMatch(match);
     navigateTo("live");
   }
@@ -161,7 +174,9 @@ function AppContent() {
   }
 
   function logout() {
+    window.localStorage.removeItem("statsvolley-profile");
     setProfileSession(null);
+    setAuthModalOpen(false);
     setSelectedTraining(null);
     setSelectedMatch(null);
     if (location.pathname === "/live") navigate("/", { replace: true });
@@ -247,80 +262,74 @@ function AppContent() {
     }
   }
 
-  const activeNavigationPage = page === "live" || page === "summary" ? "matches" : page;
+  const activeNavigationPage = ["live", "summary", "calendar"].includes(page)
+    ? "matches"
+    : page;
 
   return (
-    <div className={`app-shell${sidebarCollapsed ? " app-shell--sidebar-collapsed" : ""}`}>
-      <aside className={`sidebar${sidebarCollapsed ? " sidebar--collapsed" : ""}`}>
-        <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigateTo("home"); }}>
-          <span className="brand__mark">SV</span>
-          <span>stats<span className="brand__accent">volley</span><small>CLUB DASHBOARD</small></span>
+    <div className="app-shell">
+      <div className="demo-banner">
+        Démonstration <span aria-hidden="true">·</span> Plateforme de gestion &amp; d’analytics Volleyball
+      </div>
+      <header className="site-nav">
+        <a
+          aria-label="StatsVolley, accueil"
+          className="site-nav__brand"
+          href="/"
+          onClick={(event) => { event.preventDefault(); navigateTo("home"); }}
+        >
+          <span aria-hidden="true">🏐</span> StatsVolley
         </a>
-        <button
-          aria-label={sidebarCollapsed ? "Déplier le menu" : "Rétracter le menu"}
-          aria-pressed={sidebarCollapsed}
-          className="sidebar__toggle"
-          onClick={() => setSidebarCollapsed((current) => {
-            const next = !current;
-            window.localStorage.setItem("statsvolley-sidebar-collapsed", String(next));
-            return next;
-          })}
-          title={sidebarCollapsed ? "Déplier le menu" : "Rétracter le menu"}
-          type="button"
-        >{sidebarCollapsed ? "›" : "‹"}</button>
-        <div className="sidebar__label">ESPACE ÉQUIPE</div>
-        <nav aria-label="Navigation principale">
+        <nav aria-label="Navigation principale" className="site-nav__links">
           {NAV_ITEMS.map((item) => (
             <button
               aria-current={activeNavigationPage === item.id ? "page" : undefined}
-              className={`nav-link${activeNavigationPage === item.id ? " nav-link--active" : ""}`}
+              className={`site-nav__link${activeNavigationPage === item.id ? " site-nav__link--active" : ""}`}
               key={item.id}
               onClick={() => navigateTo(item.id)}
-              title={sidebarCollapsed ? item.label : undefined}
               type="button"
-            >
-              <span className="nav-link__icon" aria-hidden="true">{item.icon}</span>
-              <span className="nav-link__label">{item.label}</span>
-            </button>
+            >{item.label}</button>
           ))}
         </nav>
-        <div className="sidebar__footer">
+        <div className="site-nav__account">
           {profileSession ? (
             <>
-              <span className="team-avatar">{profileSession.name.slice(0, 1).toUpperCase()}</span>
-              <span className="sidebar__profile-name">
-                <strong>{profileSession.name}</strong>
-                <small>{profileSession.role}{profileSession.email ? ` · ${profileSession.email}` : ""}</small>
+              <span className="site-nav__profile">
+                <span aria-hidden="true" className="site-nav__avatar">
+                  {profileSession.name.slice(0, 1).toUpperCase()}
+                </span>
+                <span>
+                  <strong>{profileSession.name}</strong>
+                  <small>{profileSession.role}</small>
+                </span>
               </span>
-              <button
-                className="sidebar__change-profile"
-                onClick={logout}
-                title="Changer de profil / déconnexion"
-                type="button"
-              >Changer de profil</button>
+              <button className="button button--secondary site-nav__logout" onClick={logout} type="button">
+                Déconnexion
+              </button>
             </>
           ) : (
-            <span><strong>Choisissez un profil</strong></span>
+            <>
+              <button
+                className="site-nav__login"
+                onClick={() => {
+                  setAuthInitialMode("login");
+                  setAuthModalOpen(true);
+                }}
+                type="button"
+              >Connexion</button>
+              <button
+                className="button button--primary"
+                onClick={() => {
+                  setAuthInitialMode("register");
+                  setAuthModalOpen(true);
+                }}
+                type="button"
+              >Créer un compte</button>
+            </>
           )}
         </div>
-      </aside>
-
+      </header>
       <main className="main-content">
-        <header className="topbar">
-          <div><span className="topbar__crumb">STATS VOLLEY</span><span className="topbar__divider">/</span> SAISON 2026—2027</div>
-          {profileSession && (
-            <div className="topbar__session">
-              <span className="topbar__status">
-                <i /> Connecté comme {profileSession.role}
-              </span>
-              <button
-                className="topbar__change-profile"
-                onClick={logout}
-                type="button"
-              >Changer de profil</button>
-            </div>
-          )}
-        </header>
         <div className="page-content">
           {page === "home" && (
             <HomePage
@@ -423,8 +432,15 @@ function AppContent() {
           ) || selectedTraining}
         />
       )}
-      {!profileSession && (
-        <WelcomeAuthModal onAuthenticated={setProfileSession} />
+      {authModalOpen && (
+        <WelcomeAuthModal
+          initialMode={authInitialMode}
+          onAuthenticated={(authenticatedProfile) => {
+            setProfileSession(authenticatedProfile);
+            setAuthModalOpen(false);
+          }}
+          onClose={() => setAuthModalOpen(false)}
+        />
       )}
     </div>
   );

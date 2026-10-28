@@ -1,16 +1,36 @@
 const API_URL = import.meta.env.VITE_API_URL ??
   (import.meta.env.DEV
-    ? "http://localhost:3000"
+    ? ""
     : import.meta.env.BASE_URL.replace(/\/$/, ""));
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
-  });
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+  try {
+    const profile = JSON.parse(window.localStorage.getItem("statsvolley-profile"));
+    if (typeof profile?.accessToken === "string") {
+      headers.Authorization = `Bearer ${profile.accessToken}`;
+    }
+  } catch (error) {
+    console.warn("Unable to read the saved StatsVolley session:", error);
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Impossible de joindre l’API (${API_URL || "proxy local"}). Vérifiez que le serveur API est démarré.`,
+      );
+    }
+    throw error;
+  }
 
   if (response.status === 204) return null;
 
@@ -18,6 +38,11 @@ async function request(path, options = {}) {
   try {
     payload = await response.json();
   } catch {
+    if (!response.ok) {
+      throw new Error(
+        `Le serveur API est indisponible (${response.status}). Vérifiez qu’il est démarré.`,
+      );
+    }
     throw new Error("La réponse du serveur n'est pas un JSON valide.");
   }
 
@@ -29,15 +54,15 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  loginPlayer: (email) =>
-    request("/api/auth/player", {
+  register: (user) =>
+    request("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(user),
     }),
-  loginCoach: (email) =>
-    request("/api/auth/coach", {
+  login: (email, password) =>
+    request("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
     }),
   loginCoachDemo: (pin) =>
     request("/api/auth/coach-demo", {

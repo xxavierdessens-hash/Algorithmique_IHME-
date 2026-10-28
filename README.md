@@ -14,22 +14,21 @@ StatsVolley centralise le suivi d'une équipe de volleyball : planification des 
 
 ## Guide d'évaluation — accès de démonstration
 
-Sur l'écran de bienvenue de l'application déployée, choisissez l'un des profils suivants :
+Sur StatsVolley, vous pouvez créer un compte avec un email et un mot de passe, vous connecter, ou choisir un accès de démonstration :
 
 | Profil | Comment se connecter | Accès dans l'interface |
 |---|---|---|
-| **Invité** | Cliquer sur **Continuer en tant qu'Invité** | Consultation en lecture seule |
-| **Joueur** | Choisir **Espace Joueur**, puis saisir `x.dessens@gmail.com` | Consultation et déclaration de ses présences |
-| **Coach / Entraîneur** | Choisir l'accès Coach, puis cliquer sur **Accès Coach Démo** et saisir `1234` | Outils de gestion et accès au Live Match |
-| **Coach par email** | Saisir `xxavier.dessens@gmail.com` dans le formulaire Coach | Accès Coach de démonstration |
+| **Invité** | Cliquer sur **Continuer en tant qu'Invité** ou créer un compte avec une adresse non liée à l'effectif | Consultation en lecture seule |
+| **Joueur** | Créer un compte avec l'email d'un joueur existant, par exemple `x.dessens@gmail.com` | Consultation et déclaration de ses présences |
+| **Coach / Entraîneur** | Créer un compte avec `xxavier.dessens@gmail.com`, ou cliquer sur **Accès Démo Coach** et saisir le PIN configuré | Outils de gestion et accès au Live Match |
 
-Le compte Joueur correspond à **Xavier Dessens**, poste **R4**.
+Le compte Joueur de démonstration correspond à **Xavier Dessens**, poste **R4**. Le mot de passe est choisi lors de la création du compte.
 
-> **Important — démonstration uniquement :** les emails et le PIN servent à sélectionner un profil de démonstration, pas à vérifier une identité. Le profil est mémorisé dans le navigateur. Les restrictions de rôle sont principalement appliquées dans l'interface et ne constituent pas une autorisation sécurisée côté API. Ne réutilisez pas ces identifiants pour protéger des données réelles. Le PIN démo peut être remplacé avec `STATSVOLLEY_COACH_DEMO_PIN`.
+> **Important — démonstration uniquement :** l'accès invité est en lecture seule et les écritures de l'API exigent un jeton signé de Coach (ou, pour les présences, du joueur associé). L'inscription associe automatiquement le rôle Joueur si l'email correspond à l'effectif, et Coach si c'est l'email Coach configuré ; les autres comptes sont Invités. L'application ne vérifie pas la propriété d'une adresse email : n'utilisez pas ces comptes pour protéger des données réelles. Les mots de passe sont hachés avec scrypt. Le PIN démo peut être remplacé avec `STATSVOLLEY_COACH_DEMO_PIN`; configurez `STATSVOLLEY_AUTH_SECRET` avec une valeur aléatoire d'au moins 32 caractères pour signer les sessions (à défaut, la clé est dérivée de `DATABASE_URL`).
 
 ## Fonctionnalités
 
-- **Profils et rôles** : choix Invité, Joueur ou Coach, avec mémorisation locale et interface adaptée au profil.
+- **Comptes et rôles** : inscription, connexion par email et mot de passe, sessions signées conservées dans le navigateur, et accès distinct Invité/Joueur/Coach.
 - **Matchs** : calendrier, suivi du score et saisie en direct des statistiques individuelles.
 - **Fiche récapitulative** : score, MVP, efficacité d'attaque et tableau des points, attaques, aces, blocs et temps de jeu.
 - **Entraînements** : planification des séances, exercices ordonnés et détails des ateliers.
@@ -89,7 +88,7 @@ Le frontend est servi en développement par Vite et communique avec l'API Expres
    - Santé de l'API : [http://localhost:3000/api/health](http://localhost:3000/api/health)
    - PostgreSQL : `localhost:5432`
 
-Le schéma et les données de démonstration sont initialisés par l'API au démarrage. PostgreSQL conserve ses données dans le volume Docker `postgres_data`.
+Le schéma, la table de comptes et les données de démonstration sont initialisés par l'API au démarrage. PostgreSQL conserve ses données dans le volume Docker `postgres_data`. Pour un déploiement partagé, configurez `STATSVOLLEY_AUTH_SECRET` avec une valeur aléatoire d'au moins 32 caractères et remplacez le PIN Coach de démonstration.
 
 Pour arrêter les services sans effacer les données :
 
@@ -138,7 +137,7 @@ Les paramètres Docker par défaut sont destinés au développement local unique
 
 5. Ouvrir [http://localhost:5173](http://localhost:5173).
 
-En développement, le frontend utilise `http://localhost:3000` par défaut pour joindre l'API. Cette adresse peut être remplacée avec la variable `VITE_API_URL`.
+En développement, les requêtes `/api` passent par le proxy Vite, configuré par défaut vers `http://localhost:3000`. Avec Docker Compose, le proxy cible le service API (`http://api:3000`). Vous pouvez remplacer la cible du proxy avec `VITE_API_PROXY_TARGET` ou définir une URL complète avec `VITE_API_URL`.
 
 ## Données de démonstration
 
@@ -153,7 +152,7 @@ Toutes les routes sont préfixées par `/api`.
 | Domaine | Routes utiles |
 |---|---|
 | Santé | `GET /health` |
-| Authentification de démonstration | `POST /auth/player`, `POST /auth/coach`, `POST /auth/coach-demo` |
+| Authentification | `POST /auth/register`, `POST /auth/login`, `POST /auth/coach-demo` |
 | Matchs | `GET /matches`, `POST /matches`, `PUT /matches/:id`, `DELETE /matches/:id` |
 | Joueurs | `GET /players`, `POST /players`, `PUT /players/:id`, `DELETE /players/:id` |
 | Statistiques | `GET /statistics/matches/:matchId`, `POST /statistics/matches/:matchId/players/:playerId`, `GET /statistics/progression` |

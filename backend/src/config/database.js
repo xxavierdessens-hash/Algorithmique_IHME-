@@ -37,12 +37,15 @@ export async function withTransaction(callback) {
 
 export async function initializeDatabase() {
   const schemaPath = new URL("../../migrations/001_initial_schema.sql", import.meta.url);
+  const usersPath = new URL("../../migrations/002_users_auth.sql", import.meta.url);
   const seedPath = new URL("../../seeds/seed.sql", import.meta.url);
   const schema = await readFile(fileURLToPath(schemaPath), "utf8");
+  const usersSchema = await readFile(fileURLToPath(usersPath), "utf8");
   const seed = await readFile(fileURLToPath(seedPath), "utf8");
 
   for (const script of [
     { type: "migration", version: "001_initial_schema", contents: schema },
+    { type: "migration", version: "002_users_auth", contents: usersSchema },
     { type: "seed", version: "001_demo_seed", contents: seed },
   ]) {
     await withTransaction(async (client) => {

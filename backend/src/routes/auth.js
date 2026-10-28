@@ -1,13 +1,13 @@
 import { Router } from "express";
 import {
-  loginCoach,
+  login,
   loginCoachDemo,
-  loginPlayer,
+  register,
 } from "../controllers/authController.js";
 
 const router = Router();
-router.post("/player", loginPlayer);
-router.post("/coach", loginCoach);
+router.post("/register", register);
+router.post("/login", login);
 router.post("/coach-demo", loginCoachDemo);
 
 export default router;

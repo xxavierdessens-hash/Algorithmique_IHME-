@@ -5,11 +5,12 @@ import {
   listMatches,
   updateMatch,
 } from "../controllers/matchesController.js";
+import { requireAuth, requireCoach } from "../middleware/auth.js";
 
 const router = Router();
 router.get("/", listMatches);
-router.post("/", createMatch);
-router.put("/:id", updateMatch);
-router.delete("/:id", deleteMatch);
+router.post("/", requireAuth, requireCoach, createMatch);
+router.put("/:id", requireAuth, requireCoach, updateMatch);
+router.delete("/:id", requireAuth, requireCoach, deleteMatch);
 
 export default router;
